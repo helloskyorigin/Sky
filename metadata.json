@@ -1,0 +1,6 @@
+{
+  "name": "ThreatShield AI",
+  "description": "A premium AI-powered security scanner for analyzing suspicious messages under the ThreatShield AI suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

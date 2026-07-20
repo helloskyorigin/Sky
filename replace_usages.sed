@@ -1,0 +1,1 @@
+s/QuickActionHorizontalCard/PremiumActionCard/g

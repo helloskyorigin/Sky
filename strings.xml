@@ -1,0 +1,67 @@
+<resources>
+    <string name="app_name">ThreatShield AI</string>
+    <string name="choose_language_title">अपनी भाषा चुनें</string>
+    <string name="choose_language_subtitle">अपनी पसंदीदा भाषा चुनें। आप इसे बाद में Settings से बदल सकते हैं।</string>
+    <string name="lang_hindi_title">हिन्दी</string>
+    <string name="lang_hindi_desc">हिंदी में ऐप का उपयोग करें</string>
+    <string name="lang_english_title">English</string>
+    <string name="lang_english_desc">Use the app in English</string>
+    <string name="btn_continue">आगे बढ़ें</string>
+    
+    <string name="good_morning">सुप्रभात 👋</string>
+    <string name="good_afternoon">नमस्कार ☀️</string>
+    <string name="good_evening">शुभ संध्या 🌇</string>
+    <string name="good_night">शुभ रात्रि 🌙</string>
+    <string name="stay_safe_secure">सुरक्षित रहें, सुरक्षित रहें।</string>
+    <string name="status_protected">Protected</string>
+    <string name="protection_score">Protection Score</string>
+    
+    <string name="quick_actions">Quick Actions</string>
+    <string name="scan_message">Scan Message</string>
+    <string name="scan_message_subtitle">Analyze SMS, WhatsApp &amp; Email</string>
+    <string name="scan_history">Scan History</string>
+    <string name="scan_history_subtitle">View previous scan reports</string>
+    <string name="paste_clipboard">Paste Clipboard</string>
+    <string name="paste_clipboard_subtitle">Scan copied text instantly</string>
+    <string name="learn_scams">Learn About Scams</string>
+    <string name="learn_scams_subtitle">Daily tips &amp; scam awareness</string>
+    
+    <string name="ai_ready">AI Ready</string>
+    <string name="reports_count">%1$s Reports</string>
+    <string name="clipboard">Clipboard</string>
+    <string name="daily_update">Daily Update</string>
+    
+    <string name="recent_activity">Recent Activity</string>
+    <string name="security_tip">Security Tip</string>
+    <string name="learn_more">और जानें</string>
+    
+    <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    
+    <string name="notification_title">Analysis Complete ✅</string>
+    <string name="notif_danger_text">Warning! High-risk scam indicators were detected. Open the report immediately.</string>
+    <string name="notif_suspicious_text">Analysis complete. Potential risks were detected. Review the report now.</string>
+    <string name="notif_safe_text">Your message has been analyzed. Tap to view the security report.</string>
+ 
+    <!-- Legal Consent Screen Strings -->
+    <string name="empty_attribution_tag"></string>
+    <string name="attribution_label">ThreatShield AI Data Auditing</string>
+    <string name="legal_consent_title">कानूनी सहमति</string>
+    <string name="legal_consent_welcome_title">ThreatShield AI में आपका स्वागत है</string>
+    <string name="legal_consent_welcome_desc">ऐप का उपयोग करने से पहले कृपया हमारी Privacy Policy, Terms of Use और Disclaimer पढ़ें तथा उन्हें स्वीकार करें।</string>
+    <string name="legal_card_privacy">📄 Privacy Policy</string>
+    <string name="legal_card_privacy_desc">पढ़ें कि हम आपके टेक्स्ट डेटा को ऑफलाइन और स्थानीय रूप से कैसे सुरक्षित, प्रोसेस और संरक्षित करते हैं।</string>
+    <string name="legal_card_terms">📄 Terms of Use</string>
+    <string name="legal_card_terms_desc">ThreatShield AI का उपयोग करते समय अपने अधिकार, नियम और दिशानिर्देशों को समझें।</string>
+    <string name="legal_card_disclaimer">⚠️ Disclaimer</string>
+    <string name="legal_card_disclaimer_desc">ThreatShield AI स्कैन परिणामों और सुरक्षा सीमाओं के बारे में महत्वपूर्ण सूचनाएं।</string>
+    <string name="legal_card_contact">📞 Contact Us</string>
+    <string name="legal_card_contact_desc">सहायता या सुरक्षा पूछताछ के लिए हमारी टीम से संपर्क करें।</string>
+    <string name="legal_checkbox_label">मैंने Privacy Policy, Terms of Use और Disclaimer पढ़ लिए हैं और उनसे सहमत हूँ।</string>
+    <string name="legal_btn_continue">जारी रखें</string>
+    <string name="legal_btn_exit">ऐप बंद करें</string>
+    <string name="legal_dialog_title">स्वीकृति आवश्यक है</string>
+    <string name="legal_dialog_msg">ThreatShield AI का उपयोग करने के लिए Privacy Policy, Terms of Use और Disclaimer स्वीकार करना आवश्यक है।</string>
+    <string name="legal_dialog_btn_accept">स्वीकार करें</string>
+    <string name="legal_dialog_btn_exit">ऐप बंद करें</string>
+</resources>

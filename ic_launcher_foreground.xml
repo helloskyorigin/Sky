@@ -1,0 +1,72 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Outer metallic shield border -->
+    <path android:pathData="M64,6 L112,24 L112,60 C112,90 85,115 64,122 C43,115 16,90 16,60 L16,24 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="16" android:startY="6" android:endX="112" android:endY="122">
+                <item android:offset="0.0" android:color="#E0E5EC"/>
+                <item android:offset="0.3" android:color="#7A8599"/>
+                <item android:offset="0.6" android:color="#404A5E"/>
+                <item android:offset="1.0" android:color="#1F2633"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer electric blue glow/accent -->
+    <path android:pathData="M64,6 L112,24 L112,60 C112,90 85,115 64,122 C43,115 16,90 16,60 L16,24 Z"
+          android:strokeWidth="2" android:strokeColor="#0A84FF" android:strokeAlpha="0.7"/>
+
+    <!-- Inner dark shield -->
+    <path android:pathData="M64,12 L106,28 L106,59 C106,85 82,108 64,114 C46,108 22,85 22,59 L22,28 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="22" android:startY="12" android:endX="106" android:endY="114">
+                <item android:offset="0.0" android:color="#242B3A"/>
+                <item android:offset="0.5" android:color="#121620"/>
+                <item android:offset="1.0" android:color="#07090D"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Right side highlight/reflection for 3D effect -->
+    <path android:pathData="M64,12 L106,28 L106,59 C106,85 82,108 64,114 L64,12 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="64" android:startY="12" android:endX="106" android:endY="59">
+                <item android:offset="0.0" android:color="#1A00D2FF"/>
+                <item android:offset="1.0" android:color="#330A84FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top Silver Swoosh of the 'S' -->
+    <path android:pathData="M84,48 C72,32 50,38 46,54 C44,62 48,68 56,70 L56,62 C50,60 48,56 50,52 C52,44 68,42 74,52 C76,56 78,58 84,48 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="46" android:startY="38" android:endX="84" android:endY="60">
+                <item android:offset="0.0" android:color="#F2F5F8"/>
+                <item android:offset="0.5" android:color="#A0AABF"/>
+                <item android:offset="1.0" android:color="#5A667C"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bottom Blue Swoosh of the 'S' -->
+    <path android:pathData="M44,80 C56,96 78,90 82,74 C84,66 80,60 72,58 L72,66 C78,68 80,72 78,76 C76,84 60,86 54,76 C52,72 50,70 44,80 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="82" android:startY="90" android:endX="44" android:endY="68">
+                <item android:offset="0.0" android:color="#00D2FF"/>
+                <item android:offset="0.5" android:color="#0A84FF"/>
+                <item android:offset="1.0" android:color="#003D8A"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    
+    <!-- Central Glowing Star (Vertical) -->
+    <path android:pathData="M64,48 L66,62 L80,64 L66,66 L64,80 L62,66 L48,64 L62,62 Z" android:fillColor="#FFFFFF"/>
+    
+    <!-- Central Glowing Star Glow -->
+    <path android:pathData="M64,46 L67,61 L82,64 L67,67 L64,82 L61,67 L46,64 L61,61 Z" android:fillColor="#6600D2FF"/>
+</vector>

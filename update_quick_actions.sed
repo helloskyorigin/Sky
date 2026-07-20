@@ -1,0 +1,3 @@
+/fun QuickActionHorizontalCard/,/^}/ {
+    d
+}

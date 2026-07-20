@@ -1,0 +1,2 @@
+s/elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 4.dp),/elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),/
+s/\.graphicsLayer(alpha = alpha, translationY = slideUp)/\.graphicsLayer(alpha = alpha, translationY = slideUp)\n            \.shadow(\n                elevation = 16.dp,\n                shape = RoundedCornerShape(24.dp),\n                ambientColor = primaryBlue,\n                spotColor = primaryBlue\n            )/
