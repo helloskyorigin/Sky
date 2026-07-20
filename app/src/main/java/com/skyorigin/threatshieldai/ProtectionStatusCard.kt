@@ -195,7 +195,7 @@ fun ProtectionStatusCard(
                                     ProtectionStatus.GOOD -> "अच्छा"
                                     ProtectionStatus.NEEDS_ATTENTION -> "ध्यान दें"
                                     ProtectionStatus.HIGH_RISK -> "उच्च जोखिम"
-                                    ProtectionStatus.UNKNOWN -> "अज्ञात"
+                                    ProtectionStatus.UNKNOWN -> "कोई स्कैन डेटा नहीं"
                                 }
                             } else {
                                 when (status) {
@@ -203,7 +203,7 @@ fun ProtectionStatusCard(
                                     ProtectionStatus.GOOD -> "Good"
                                     ProtectionStatus.NEEDS_ATTENTION -> "Attention"
                                     ProtectionStatus.HIGH_RISK -> "High Risk"
-                                    ProtectionStatus.UNKNOWN -> "Unknown"
+                                    ProtectionStatus.UNKNOWN -> "No Scan Data"
                                 }
                             },
                             style = TextStyle(

@@ -128,9 +128,9 @@ fun FeedbackDialog(
                                 onDismiss()
                             },
                             onSubmit = {
-                                if (rating == 5) {
+                                if (rating >= 4) {
                                     isSubmitting = true
-                                    triggerPlayStoreRating(context, activity, viewModel) {
+                                    triggerPlayStoreRating(context, activity, viewModel, rating) {
                                         isSubmitting = false
                                         stage = FeedbackStage.SUCCESS
                                     }
@@ -585,10 +585,11 @@ private fun triggerPlayStoreRating(
     context: Context,
     activity: Activity?,
     viewModel: ScamLensViewModel,
+    rating: Int,
     onComplete: () -> Unit
 ) {
     if (activity == null) {
-        openPlayStoreFallback(context, viewModel, onComplete)
+        openPlayStoreFallback(context, viewModel, rating, onComplete)
         return
     }
 
@@ -601,15 +602,15 @@ private fun triggerPlayStoreRating(
             flow.addOnCompleteListener { _ ->
                 // Save Play Store feedback document locally and schedule sync
                 viewModel.submitUserFeedback(
-                    rating = 5,
+                    rating = rating,
                     category = "Play Store",
-                    message = "In-App Play Store review successfully completed."
+                    message = "In-App Play Store review successfully completed with $rating-star rating."
                 ) {
                     onComplete()
                 }
             }
         } else {
-            openPlayStoreFallback(context, viewModel, onComplete)
+            openPlayStoreFallback(context, viewModel, rating, onComplete)
         }
     }
 }
@@ -617,6 +618,7 @@ private fun triggerPlayStoreRating(
 private fun openPlayStoreFallback(
     context: Context,
     viewModel: ScamLensViewModel,
+    rating: Int,
     onComplete: () -> Unit
 ) {
     try {
@@ -624,15 +626,20 @@ private fun openPlayStoreFallback(
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     } catch (e: Exception) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (ex: Exception) {
+            // Never crash if no compatible app/browser is available
+            ex.printStackTrace()
+        }
     }
     
     viewModel.submitUserFeedback(
-        rating = 5,
+        rating = rating,
         category = "Play Store Fallback",
-        message = "Fallback to Play Store URL opened."
+        message = "Fallback to Play Store URL opened for $rating-star rating."
     ) {
         onComplete()
     }

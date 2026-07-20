@@ -46,8 +46,8 @@ enum class ProtectionStatus(
         icon = Icons.Rounded.GppMaybe
     ),
     UNKNOWN(
-        titleEn = "Unknown",
-        titleHi = "अज्ञात",
+        titleEn = "No Scan Data",
+        titleHi = "कोई स्कैन डेटा नहीं",
         descEn = "Complete your first scan to generate your protection profile.",
         descHi = "अपना सुरक्षा प्रोफाइल बनाने के लिए अपना पहला स्कैन पूरा करें।",
         color = Color(0xFF94A3B8), // Slate

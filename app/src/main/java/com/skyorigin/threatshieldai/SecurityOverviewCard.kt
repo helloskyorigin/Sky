@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -128,8 +129,11 @@ fun SecurityOverviewCard(
     val scamCount = history.count { it.status.lowercase() == "danger" || it.status.lowercase() == "unsafe" }
     val suspiciousCount = history.count { it.status.lowercase() == "suspicious" }
     
-    val protectionScore = if (totalScans == 0) 0 else ((safeCount.toFloat() / totalScans) * 100).toInt().coerceIn(0, 100)
-    val safeRate = if (totalScans == 0) 0 else ((safeCount.toFloat() / totalScans) * 100).toInt().coerceIn(0, 100)
+    val protectionStatus = when {
+        !viewModel.legalConsentAccepted || !viewModel.onboardingCompleted -> "INACTIVE"
+        scamCount > 0 || suspiciousCount > 0 -> "ATTENTION"
+        else -> "ACTIVE"
+    }
     
     val lastScanTimeLabel = if (history.isNotEmpty()) {
         val latestScan = history.maxByOrNull { it.timestamp }
@@ -254,159 +258,138 @@ fun SecurityOverviewCard(
 
                 // Premium Status Badge
                 StatusBadge(
-                    score = protectionScore,
-                    totalScans = totalScans,
+                    status = protectionStatus,
                     isHindi = isHindi
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Circular Score Ring (Center)
+            // 2. Protection Status Visual/Icon (Center)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                val strokeWidth = 10.dp
-                val scoreAngleProgress by animateFloatAsState(
-                    targetValue = if (totalScans == 0) 0f else protectionScore.toFloat() / 100f,
-                    animationSpec = tween(durationMillis = 1500, easing = EaseOutCubic),
-                    label = "scoreAngleProgress"
-                )
-
-                // Select colors based on score
-                val indicatorColors = when {
-                    totalScans == 0 -> listOf(Color(0xFF64748B), Color(0xFF94A3B8))
-                    protectionScore == 100 -> listOf(Color(0xFF10B981), Color(0xFF34D399))
-                    protectionScore >= 70 -> listOf(Color(0xFF3B82F6), Color(0xFF60A5FA))
-                    protectionScore >= 40 -> listOf(Color(0xFFF59E0B), Color(0xFFFBBF24))
-                    else -> listOf(Color(0xFFEF4444), Color(0xFFF87171))
+                val statusColor = when (protectionStatus) {
+                    "ACTIVE" -> Color(0xFF10B981)
+                    "ATTENTION" -> Color(0xFFF59E0B)
+                    else -> Color(0xFF94A3B8)
+                }
+                val statusIcon = when (protectionStatus) {
+                    "ACTIVE" -> Icons.Rounded.VerifiedUser
+                    "ATTENTION" -> Icons.Rounded.ReportProblem
+                    else -> Icons.Rounded.GppMaybe
+                }
+                val statusText = when (protectionStatus) {
+                    "ACTIVE" -> if (isHindi) "सक्रिय" else "ACTIVE"
+                    "ATTENTION" -> if (isHindi) "सावधान" else "ATTENTION"
+                    else -> if (isHindi) "निष्क्रिय" else "INACTIVE"
+                }
+                val statusDesc = when (protectionStatus) {
+                    "ACTIVE" -> if (isHindi) "सुरक्षा सक्रिय है और स्कैन सामान्य रूप से काम कर रहे हैं।" else "Protection is active and scans are working normally."
+                    "ATTENTION" -> if (isHindi) "संदिग्ध या खतरनाक परिणाम मिले हैं। सिफारिशें देखें।" else "Suspicious or Dangerous results detected. Review recommendations."
+                    else -> if (isHindi) "सेटअप अधूरा है या स्कैन सेवा अनुपलब्ध है।" else "Scanning service unavailable or setup incomplete."
                 }
 
-                val ringGlowColor = indicatorColors.first()
+                val pulseScale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.15f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = EaseInOutSine),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulse_scale"
+                )
+                val pulseAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 0.05f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = EaseInOutSine),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulse_alpha"
+                )
 
-                Box(
-                    modifier = Modifier
-                        .size(136.dp)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(ringGlowColor.copy(alpha = 0.08f), Color.Transparent),
-                            ),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.foundation.Canvas(
-                        modifier = Modifier.size(120.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        val strokePx = strokeWidth.toPx()
-                        
-                        // Thin neutral track
-                        drawArc(
-                            color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.6f) else Color(0xFFE2E8F0),
-                            startAngle = -90f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            style = Stroke(width = strokePx - 2f, cap = StrokeCap.Round)
+                        // Pulsing background ring
+                        Box(
+                            modifier = Modifier
+                                .size(70.dp)
+                                .scale(pulseScale)
+                                .alpha(pulseAlpha)
+                                .background(statusColor.copy(alpha = 0.2f), CircleShape)
+                                .border(1.5.dp, statusColor.copy(alpha = 0.4f), CircleShape)
                         )
-                        
-                        if (totalScans == 0) {
-                            // Dotted dynamic pulse track when empty
-                            drawArc(
-                                color = if (isDark) Color(0xFF3B82F6).copy(alpha = 0.3f) else Color(0xFF94A3B8),
-                                startAngle = -90f,
-                                sweepAngle = 360f,
-                                useCenter = false,
-                                style = Stroke(
-                                    width = strokePx,
-                                    cap = StrokeCap.Round,
-                                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
-                                )
-                            )
-                        } else {
-                            // Neon glow underneath
-                            drawArc(
-                                brush = Brush.sweepGradient(
-                                    colors = indicatorColors,
-                                    center = center
-                                ),
-                                startAngle = -90f,
-                                sweepAngle = 360f * scoreAngleProgress,
-                                useCenter = false,
-                                style = Stroke(width = strokePx + 10f, cap = StrokeCap.Round),
-                                alpha = 0.2f
-                            )
 
-                            // Foreground arc
-                            drawArc(
-                                brush = Brush.sweepGradient(
-                                    colors = indicatorColors,
-                                    center = center
-                                ),
-                                startAngle = -90f,
-                                sweepAngle = 360f * scoreAngleProgress,
-                                useCenter = false,
-                                style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                        // Inner solid badge container
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(statusColor.copy(alpha = 0.15f), Color.Transparent)
+                                    ),
+                                    shape = CircleShape
+                                )
+                                .border(1.5.dp, statusColor.copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = statusIcon,
+                                contentDescription = "Status Icon",
+                                tint = statusColor,
+                                modifier = Modifier.size(30.dp)
                             )
                         }
                     }
 
-                    // Score details within the circle
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        if (totalScans == 0) {
-                            Text(
-                                text = "--",
-                                style = TextStyle(
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = textSecondary
-                                )
-                            )
-                            Text(
-                                text = if (isHindi) "डेटा नहीं है" else "No Data",
-                                style = TextStyle(
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textSecondary,
-                                    letterSpacing = 0.2.sp
-                                )
-                            )
-                        } else {
-                            var scoreStarted by remember { mutableStateOf(false) }
-                            LaunchedEffect(protectionScore) {
-                                scoreStarted = true
-                            }
-                            val animatedScore by animateIntAsState(
-                                targetValue = if (scoreStarted) protectionScore else 0,
-                                animationSpec = tween(durationMillis = 1500, easing = EaseOutCubic),
-                                label = "ring_score_anim"
-                            )
-
-                            Text(
-                                text = "$animatedScore%",
-                                style = TextStyle(
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = ringGlowColor,
-                                    letterSpacing = (-0.5).sp
-                                )
-                            )
-                            Text(
-                                text = if (isHindi) "सुरक्षा स्कोर" else "Security Score",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textSecondary,
-                                    letterSpacing = 0.2.sp
-                                )
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = if (isHindi) "सुरक्षा स्थिति" else "Protection Status",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textSecondary,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(2.dp))
+                    
+                    Text(
+                        text = statusText,
+                        style = TextStyle(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            color = statusColor,
+                            letterSpacing = 0.5.sp
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    Text(
+                        text = statusDesc,
+                        style = TextStyle(
+                            fontSize = 11.5.sp,
+                            color = textSecondary,
+                            fontWeight = FontWeight.Normal,
+                            lineHeight = 15.sp,
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
                 }
             }
 
@@ -443,7 +426,7 @@ fun SecurityOverviewCard(
                 ) {
                     GridStatCard(
                         icon = Icons.Rounded.GppBad,
-                        label = if (isHindi) "स्कैम मिले" else "Scam Detected",
+                        label = if (isHindi) "खतरे मिले" else "Threats Detected",
                         value = scamCount,
                         tintColor = Color(0xFFEF4444),
                         isDark = isDark,
@@ -470,17 +453,7 @@ fun SecurityOverviewCard(
                         rawValueString = lastScanTimeLabel,
                         tintColor = Color(0xFF8B5CF6),
                         isDark = isDark,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    GridStatCard(
-                        icon = Icons.Rounded.Percent,
-                        label = if (isHindi) "सुरक्षित दर" else "Safe Rate",
-                        value = safeRate,
-                        suffix = "%",
-                        tintColor = Color(0xFF06B6D4),
-                        isDark = isDark,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -490,25 +463,18 @@ fun SecurityOverviewCard(
 
 @Composable
 fun StatusBadge(
-    score: Int,
-    totalScans: Int,
+    status: String,
     isHindi: Boolean
 ) {
-    val (text, color) = when {
-        totalScans == 0 -> {
-            (if (isHindi) "डेटा नहीं है" else "No Data Yet") to Color(0xFF94A3B8)
+    val (text, color) = when (status) {
+        "ACTIVE" -> {
+            (if (isHindi) "सक्रिय" else "ACTIVE") to Color(0xFF10B981)
         }
-        score == 100 -> {
-            (if (isHindi) "उत्कृष्ट" else "Excellent") to Color(0xFF10B981)
-        }
-        score >= 70 -> {
-            (if (isHindi) "अच्छा" else "Good") to Color(0xFF3B82F6)
-        }
-        score >= 40 -> {
-            (if (isHindi) "मध्यम जोखिम" else "Medium Risk") to Color(0xFFF59E0B)
+        "ATTENTION" -> {
+            (if (isHindi) "सावधान" else "ATTENTION") to Color(0xFFF59E0B)
         }
         else -> {
-            (if (isHindi) "उच्च जोखिम" else "High Risk") to Color(0xFFEF4444)
+            (if (isHindi) "निष्क्रिय" else "INACTIVE") to Color(0xFF94A3B8)
         }
     }
 

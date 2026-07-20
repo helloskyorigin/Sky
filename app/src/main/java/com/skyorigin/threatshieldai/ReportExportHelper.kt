@@ -740,17 +740,32 @@ object ReportExportHelper {
                         canvas.drawText(shortUrl, 110f, linkY, normalTextPaint)
                         
                         val gridY = linkY + 14f
-                        canvas.drawText("Web Reputation:", 50f, gridY, infoLabelPaint)
-                        val wrText = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
+                        canvas.drawText("Threat Database:", 50f, gridY, infoLabelPaint)
+                        val wrTextRaw = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
+                        val wrText = when {
+                            wrTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            wrTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(wrText, 145f, gridY, infoValPaint)
                         
-                        canvas.drawText("PhishTank DB:", 300f, gridY, infoLabelPaint)
-                        val ptText = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
+                        canvas.drawText("Phishing Check:", 300f, gridY, infoLabelPaint)
+                        val ptTextRaw = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
+                        val ptText = when {
+                            ptTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            ptTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(ptText, 395f, gridY, infoValPaint)
                         
                         val gridY2 = gridY + 14f
-                        canvas.drawText("URLhaus Feed:", 50f, gridY2, infoLabelPaint)
-                        val uhText = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
+                        canvas.drawText("Malware Check:", 50f, gridY2, infoLabelPaint)
+                        val uhTextRaw = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
+                        val uhText = when {
+                            uhTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            uhTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(uhText, 145f, gridY2, infoValPaint)
                         
                         canvas.drawText("Link Verdict:", 300f, gridY2, infoLabelPaint)
@@ -1096,17 +1111,32 @@ object ReportExportHelper {
                         canvas.drawText(shortUrl, 110f, linkY, normalTextPaint)
                         
                         val gridY = linkY + 14f
-                        canvas.drawText("Web Reputation:", 50f, gridY, infoLabelPaint)
-                        val wrText = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
+                        canvas.drawText("Threat Database:", 50f, gridY, infoLabelPaint)
+                        val wrTextRaw = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
+                        val wrText = when {
+                            wrTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            wrTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(wrText, 145f, gridY, infoValPaint)
                         
-                        canvas.drawText("PhishTank DB:", 300f, gridY, infoLabelPaint)
-                        val ptText = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
+                        canvas.drawText("Phishing Check:", 300f, gridY, infoLabelPaint)
+                        val ptTextRaw = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
+                        val ptText = when {
+                            ptTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            ptTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(ptText, 395f, gridY, infoValPaint)
                         
                         val gridY2 = gridY + 14f
-                        canvas.drawText("URLhaus Feed:", 50f, gridY2, infoLabelPaint)
-                        val uhText = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
+                        canvas.drawText("Malware Check:", 50f, gridY2, infoLabelPaint)
+                        val uhTextRaw = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
+                        val uhText = when {
+                            uhTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
+                            uhTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
+                            else -> "UNVERIFIED"
+                        }
                         canvas.drawText(uhText, 145f, gridY2, infoValPaint)
                         
                         canvas.drawText("Link Verdict:", 300f, gridY2, infoLabelPaint)

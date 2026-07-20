@@ -1217,6 +1217,15 @@ object SecurityAnalysisEngine {
             else -> "Safe"
         }
 
+        if (extractedUrls.isEmpty()) {
+            textVerdict = when (aiClassification) {
+                "DANGEROUS" -> "Danger"
+                "SUSPICIOUS" -> "Suspicious"
+                "UNABLE_TO_DETERMINE", "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
+                else -> "Safe"
+            }
+        }
+
         // URL SIGNALS & MULTIPLE URL LOGIC
         val urlScanHasDanger = urlResults.any { 
             it.webRiskVerdict == "MALICIOUS" || it.phishtankVerdict == "MALICIOUS" || it.urlhausVerdict == "MALICIOUS" || it.finalUrlVerdict == "MALICIOUS" || it.finalUrlVerdict == "danger"
@@ -1262,6 +1271,15 @@ object SecurityAnalysisEngine {
             
             // 8. Default Safe
             else -> "Safe"
+        }
+
+        if (extractedUrls.isEmpty()) {
+            finalVerdict = when (aiClassification) {
+                "DANGEROUS" -> "Danger"
+                "SUSPICIOUS" -> "Suspicious"
+                "UNABLE_TO_DETERMINE", "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
+                else -> "Safe"
+            }
         }
 
         // SERVICE FAILURE EVALUATION
@@ -1323,7 +1341,7 @@ object SecurityAnalysisEngine {
                 if (textScore in 46..75) textScore else 60
             }
             "Suspicious" -> {
-                if (isCase3) {
+                if (isCase3 || extractedUrls.isEmpty()) {
                     if (textScore in 21..75) textScore else 45
                 } else {
                     if (textScore in 21..45) textScore else 35

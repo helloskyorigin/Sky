@@ -1,6 +1,11 @@
 package com.skyorigin.threatshieldai
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.os.Build
+import android.Manifest
+
 import com.skyorigin.threatshieldai.ui.theme.LocalIsDark
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -97,6 +102,19 @@ fun DashboardScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDark = LocalIsDark.current
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        if (!viewModel.notifOnboardingShown) {
+            viewModel.notifOnboardingShown = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
     
     // Core Premium Design Tokens
     val primaryBlue = if (isDark) Color(0xFF3B82F6) else Color(0xFF2563EB)

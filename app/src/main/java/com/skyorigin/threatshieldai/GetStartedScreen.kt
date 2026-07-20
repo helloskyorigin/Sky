@@ -9,6 +9,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,8 +19,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -33,15 +38,10 @@ fun GetStartedScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     var isVisible by remember { mutableStateOf(false) }
+    var consentChecked by remember { mutableStateOf(false) }
     val primaryBlue = Color(0xFF2563EB)
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        AnalyticsManager.getInstance(context).logOnboardingCompleted()
-        onComplete()
-    }
 
     LaunchedEffect(Unit) {
         isVisible = true
@@ -112,15 +112,75 @@ fun GetStartedScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // Consent check row with clickable legal text
+            val annotatedText = buildAnnotatedString {
+                withStyle(style = SpanStyle(color = Color(0xFF4B5563), fontSize = 14.sp)) {
+                    append("I agree to the ")
+                }
+                pushStringAnnotation(tag = "terms", annotation = LegalConstants.LEGAL_BASE_URL + "terms.html")
+                withStyle(style = SpanStyle(color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)) {
+                    append("Terms of Service")
+                }
+                pop()
+                withStyle(style = SpanStyle(color = Color(0xFF4B5563), fontSize = 14.sp)) {
+                    append(" and ")
+                }
+                pushStringAnnotation(tag = "privacy", annotation = LegalConstants.LEGAL_BASE_URL + "privacy.html")
+                withStyle(style = SpanStyle(color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)) {
+                    append("Privacy Policy")
+                }
+                pop()
+                withStyle(style = SpanStyle(color = Color(0xFF4B5563), fontSize = 14.sp)) {
+                    append(".")
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+                    .alpha(alpha),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = consentChecked,
+                    onCheckedChange = { consentChecked = it },
+                    modifier = Modifier.testTag("consent_checkbox"),
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = primaryBlue,
+                        uncheckedColor = Color(0xFF9CA3AF)
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                ClickableText(
+                    text = annotatedText,
+                    onClick = { offset ->
+                        annotatedText.getStringAnnotations(tag = "terms", start = offset, end = offset)
+                            .firstOrNull()?.let { annotation ->
+                                try {
+                                    uriHandler.openUri(annotation.item)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        annotatedText.getStringAnnotations(tag = "privacy", start = offset, end = offset)
+                            .firstOrNull()?.let { annotation ->
+                                try {
+                                    uriHandler.openUri(annotation.item)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                    }
+                )
+            }
+
             Button(
                 onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        AnalyticsManager.getInstance(context).logOnboardingCompleted()
-                        onComplete()
-                    }
+                    AnalyticsManager.getInstance(context).logOnboardingCompleted()
+                    onComplete()
                 },
+                enabled = consentChecked,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 24.dp)
@@ -131,7 +191,9 @@ fun GetStartedScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = primaryBlue,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    disabledContainerColor = primaryBlue.copy(alpha = 0.5f),
+                    disabledContentColor = Color.White.copy(alpha = 0.6f)
                 )
             ) {
                 Box(

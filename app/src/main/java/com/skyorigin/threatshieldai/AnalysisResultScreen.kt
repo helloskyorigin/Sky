@@ -620,9 +620,9 @@ fun AnalysisResultScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            ProviderCell("Web Risk", highestRiskUrl.webRiskVerdict, highestRiskUrl.webRiskStatus, isHindi, Modifier.weight(1f))
-                            ProviderCell("PhishTank", highestRiskUrl.phishtankVerdict, highestRiskUrl.phishtankStatus, isHindi, Modifier.weight(1f))
-                            ProviderCell("URLhaus", highestRiskUrl.urlhausVerdict, highestRiskUrl.urlhausStatus, isHindi, Modifier.weight(1f))
+                            ProviderCell("Threat Database", highestRiskUrl.webRiskVerdict, highestRiskUrl.webRiskStatus, isHindi, Modifier.weight(1f))
+                            ProviderCell("Phishing Check", highestRiskUrl.phishtankVerdict, highestRiskUrl.phishtankStatus, isHindi, Modifier.weight(1f))
+                            ProviderCell("Malware Check", highestRiskUrl.urlhausVerdict, highestRiskUrl.urlhausStatus, isHindi, Modifier.weight(1f))
                         }
                         
                         // Expandable Detail for Multiple URLs
@@ -718,9 +718,9 @@ fun AnalysisResultScreen(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            ProviderCell("Web Risk", urlStatus.webRiskVerdict, urlStatus.webRiskStatus, isHindi, Modifier.weight(1f))
-                                            ProviderCell("PhishTank", urlStatus.phishtankVerdict, urlStatus.phishtankStatus, isHindi, Modifier.weight(1f))
-                                            ProviderCell("URLhaus", urlStatus.urlhausVerdict, urlStatus.urlhausStatus, isHindi, Modifier.weight(1f))
+                                            ProviderCell("Threat Database", urlStatus.webRiskVerdict, urlStatus.webRiskStatus, isHindi, Modifier.weight(1f))
+                                            ProviderCell("Phishing Check", urlStatus.phishtankVerdict, urlStatus.phishtankStatus, isHindi, Modifier.weight(1f))
+                                            ProviderCell("Malware Check", urlStatus.urlhausVerdict, urlStatus.urlhausStatus, isHindi, Modifier.weight(1f))
                                         }
                                     }
                                     if (index < parsedUrls.size - 2) {
@@ -778,17 +778,67 @@ fun AnalysisResultScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    val rawReasons = (analysis.reasons + analysis.signals).distinct().filter { it.isNotBlank() }
-                    val mappedReasons = rawReasons.map { mapSignalToReason(it, isHindi) }.distinct().filter { it.isNotBlank() }
-                    
-                    val finalReasons = if (mappedReasons.isEmpty()) {
-                        if (isHindi) {
-                            listOf("कोई संदिग्ध पैटर्न नहीं पाया गया", "कोई खतरनाक लिंक नहीं पाया गया")
-                        } else {
-                            listOf("No strong scam pattern detected", "No known malicious link detected")
+                    val finalReasons = when {
+                        isDanger -> {
+                            val r1 = if (analysis.links.isNotEmpty()) {
+                                val hasMalicious = parsedUrls.any { it.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") }
+                                if (hasMalicious) {
+                                    if (isHindi) "✕ ज्ञात खतरनाक लिंक पाया गया" else "✕ Known dangerous Link detected"
+                                } else {
+                                    if (isHindi) "✕ अत्यधिक संदिग्ध लिंक पाया गया" else "✕ Highly suspicious Link detected"
+                                }
+                            } else {
+                                val cleanType = analysis.scamType.lowercase()
+                                if (cleanType.contains("bank") || cleanType.contains("impersonat")) {
+                                    if (isHindi) "✕ गंभीर बैंक प्रतिरूपण का प्रयास पाया गया" else "✕ Severe banking impersonation attempt detected"
+                                } else if (cleanType.contains("otp") || cleanType.contains("credential") || cleanType.contains("chori") || cleanType.contains("चोरी")) {
+                                    if (isHindi) "✕ उच्च जोखिम वाले क्रेडेंशियल/ओटीपी चोरी का पैटर्न मिला" else "✕ High-risk credential/OTP theft pattern found"
+                                } else {
+                                    if (isHindi) "✕ जोखिम भरे अनधिकृत अनुरोध पाए गए" else "✕ Risky unauthorized requests detected"
+                                }
+                            }
+                            val r2 = if (isHindi) "✕ संदेश में मजबूत घोटाला व्यवहार पाया गया" else "✕ Strong scam behavior found in the message"
+                            val r3 = if (isHindi) "✕ संदेश एक जोखिम भरे या संवेदनशील कार्रवाई का प्रयास करता है" else "✕ Message attempts a risky or sensitive action"
+                            listOf(r1, r2, r3)
                         }
-                    } else {
-                        mappedReasons.take(3)
+                        isWarning || isSuspicious -> {
+                            val r1 = if (isHindi) "• कुछ संदिग्ध व्यवहार का पता चला है" else "• Some suspicious behavior detected"
+                            val r2 = if (analysis.links.isNotEmpty()) {
+                                val hasMalicious = parsedUrls.any { it.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") }
+                                val hasUnverified = parsedUrls.any { it.riskLevel.uppercase() in listOf("UNVERIFIED", "UNKNOWN") }
+                                if (hasMalicious) {
+                                    if (isHindi) "• खतरनाक या ब्लैकलिस्टेड लिंक पाया गया" else "• Dangerous or blacklisted Link found"
+                                } else if (hasUnverified) {
+                                    if (isHindi) "• सत्यापित न होने वाला लिंक, अत्यधिक सावधानी की आवश्यकता" else "• Unverified link requiring extreme caution"
+                                } else {
+                                    if (isHindi) "• क्लिक करने से पहले लिंक के सत्यापन की आवश्यकता है" else "• Link requires verification before clicking"
+                                }
+                            } else {
+                                if (isHindi) "• प्रेषक या अनुरोध को पूरी तरह से सत्यापित नहीं किया जा सका" else "• Sender or request could not be fully verified"
+                            }
+                            val r3 = if (isHindi) "• कार्रवाई करने से पहले सावधानी बरतने की सलाह दी जाती है" else "• Caution is recommended before taking action"
+                            listOf(r1, r2, r3)
+                        }
+                        isUnableToDetermine -> {
+                            val r1 = if (isHindi) "• पूर्ण विश्लेषण के लिए संदेश का संदर्भ अपर्याप्त है" else "• Insufficient message context for full analysis"
+                            val r2 = if (analysis.links.isNotEmpty()) {
+                                if (isHindi) "• लिंक की प्रतिष्ठा असत्यापित या ऑफ़लाइन है" else "• Link reputation is unverified or offline"
+                            } else {
+                                if (isHindi) "• सत्यापित करने के लिए कोई लिंक या संपर्क विवरण नहीं" else "• No links or contact details to verify"
+                            }
+                            val r3 = if (isHindi) "• अवांछित संदेशों के लिए सावधानी बरतने की सलाह दी जाती है" else "• Caution is advised for unsolicited messages"
+                            listOf(r1, r2, r3)
+                        }
+                        else -> { // SAFE
+                            val r1 = if (isHindi) "✓ कोई मजबूत घोटाला पैटर्न नहीं पाया गया" else "✓ No strong scam behavior found"
+                            val r2 = if (analysis.links.isNotEmpty()) {
+                                if (isHindi) "✓ कोई ज्ञात लिंक खतरा नहीं पाया गया" else "✓ No known Link threat detected"
+                            } else {
+                                if (isHindi) "✓ संदेश में कोई लिंक नहीं पाया गया" else "✓ No Link detected in the message"
+                            }
+                            val r3 = if (isHindi) "✓ संदेश सूचनात्मक प्रतीत होता है, संवेदनशील कार्रवाई का अनुरोध नहीं है" else "✓ Message appears informational, not requesting sensitive action"
+                            listOf(r1, r2, r3)
+                        }
                     }
                     
                     finalReasons.forEachIndexed { index, reason ->
@@ -796,64 +846,34 @@ fun AnalysisResultScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
-                            val reasonLower = reason.lowercase()
-                            val icon = when {
-                                reasonLower.contains("link") || reasonLower.contains("url") -> Icons.Rounded.Link
-                                reasonLower.contains("fake") || reasonLower.contains("impersonat") || reasonLower.contains("सत्यापन") -> Icons.Rounded.Policy
-                                reasonLower.contains("urgent") || reasonLower.contains("pressure") || reasonLower.contains("दबाव") || reasonLower.contains("तात्कालिकता") -> Icons.Rounded.WarningAmber
-                                reasonLower.contains("private") || reasonLower.contains("info") || reasonLower.contains("credential") || reasonLower.contains("निजी") -> Icons.Rounded.PersonSearch
-                                reasonLower.contains("bank") || reasonLower.contains("finance") || reasonLower.contains("लॉटरी") -> Icons.Rounded.AccountBalance
-                                else -> Icons.Rounded.Info
-                            }
-                            val iconColor = when {
-                                isDanger -> dangerRed
-                                isWarning || isSuspicious -> warningOrange
-                                isUnableToDetermine -> Color(0xFF94A3B8)
-                                else -> safeGreen
+                            val (icon, iconColor, displayText) = when {
+                                reason.startsWith("✕ ") -> Triple(Icons.Rounded.Close, dangerRed, reason.substring(2))
+                                reason.startsWith("✓ ") -> Triple(Icons.Rounded.Check, safeGreen, reason.substring(2))
+                                reason.startsWith("• ") -> {
+                                    val color = if (isUnableToDetermine) Color(0xFF94A3B8) else warningOrange
+                                    Triple(Icons.Rounded.FiberManualRecord, color, reason.substring(2))
+                                }
+                                else -> Triple(Icons.Rounded.Info, riskColor, reason)
                             }
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
                                 tint = iconColor,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(if (icon == Icons.Rounded.FiberManualRecord) 10.dp else 16.dp).let {
+                                    if (icon == Icons.Rounded.FiberManualRecord) {
+                                        it.padding(horizontal = 3.dp)
+                                    } else it
+                                }
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = reason,
+                                text = displayText,
                                 color = textPrimary.copy(alpha = 0.9f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
                                 lineHeight = 15.sp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            
-                            val severityText = when {
-                                isDanger && index < 2 -> "High"
-                                isDanger -> "Medium"
-                                isWarning || isSuspicious -> "Medium"
-                                isUnableToDetermine -> "Low"
-                                else -> "Low"
-                            }
-                            val severityColor = when {
-                                severityText == "High" -> dangerRed
-                                severityText == "Medium" -> warningOrange
-                                isUnableToDetermine -> Color(0xFF94A3B8)
-                                else -> safeGreen
-                            }
-                            
-                            Surface(
-                                color = severityColor.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(100.dp)
-                            ) {
-                                Text(
-                                    text = severityText,
-                                    color = severityColor,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
                         }
                     }
                 }
@@ -1192,29 +1212,49 @@ fun AnalysisResultScreen(
 fun ProviderCell(name: String, verdict: String, status: String, isHindi: Boolean, modifier: Modifier = Modifier) {
     val isDark = LocalIsDark.current
     
+    val localizedName = if (isHindi) {
+        when (name) {
+            "Threat Database", "Web Risk" -> "थ्रेट डेटाबेस"
+            "Phishing Check", "PhishTank" -> "फ़िशिंग जाँच"
+            "Malware Check", "URLhaus" -> "मालवेयर जाँच"
+            else -> name
+        }
+    } else {
+        when (name) {
+            "Web Risk" -> "Threat Database"
+            "PhishTank" -> "Phishing Check"
+            "URLhaus" -> "Malware Check"
+            else -> name
+        }
+    }
+
     val displayLabel = when {
         status.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") ||
-        verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") -> "Skipped (Privacy)"
+        verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") -> {
+            if (isHindi) "छोड़ा गया (गोपनीयता)" else "Skipped (Privacy)"
+        }
         
-        verdict.uppercase() == "SUSPICIOUS_BEHAVIOR" -> "Suspicious"
-        verdict.uppercase() == "NO_STRONG_SUSPICIOUS_BEHAVIOR" -> "No Suspicious"
-        verdict.uppercase() == "INCONCLUSIVE" -> "Inconclusive"
+        status.uppercase() == "FAILED" || status.uppercase() == "TIMEOUT" || status.uppercase() == "SCAN_FAILED" -> {
+            if (isHindi) "अपुष्ट" else "Unverified"
+        }
         
-        status.uppercase() == "FAILED" || status.uppercase() == "TIMEOUT" || status.uppercase() == "SCAN_FAILED" -> "Failed"
-        verdict.uppercase() in listOf("MALICIOUS", "DANGER") -> if (name == "PhishTank") "Phishing" else "Threat"
-        verdict.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> "Not Flagged"
-        else -> "Unverified"
+        verdict.uppercase() in listOf("MALICIOUS", "DANGER") -> {
+            if (isHindi) "खतरा" else "Threat"
+        }
+        
+        verdict.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> {
+            if (isHindi) "सुरक्षित" else "Clear"
+        }
+        
+        else -> {
+            if (isHindi) "अपुष्ट" else "Unverified"
+        }
     }
     
     val displayColor = when {
         status.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") ||
         verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") -> Color(0xFF3B82F6)
         
-        verdict.uppercase() == "SUSPICIOUS_BEHAVIOR" -> Color(0xFFEF4444)
-        verdict.uppercase() == "NO_STRONG_SUSPICIOUS_BEHAVIOR" -> Color(0xFF22C55E)
-        verdict.uppercase() == "INCONCLUSIVE" -> Color(0xFF94A3B8)
-        
-        status.uppercase() == "FAILED" || status.uppercase() == "TIMEOUT" || status.uppercase() == "SCAN_FAILED" -> Color(0xFFF59E0B)
         verdict.uppercase() in listOf("MALICIOUS", "DANGER") -> Color(0xFFEF4444)
         verdict.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> Color(0xFF22C55E)
         else -> Color(0xFFF59E0B)
@@ -1231,7 +1271,7 @@ fun ProviderCell(name: String, verdict: String, status: String, isHindi: Boolean
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = name,
+            text = localizedName,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),

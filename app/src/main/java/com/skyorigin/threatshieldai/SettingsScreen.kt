@@ -594,8 +594,8 @@ fun SettingsScreen(
 
         val scoreTextVal = if (totalScans == 0) "--" else "$protectionScore%"
 
-        val labelStatus = if (isHindi) "वर्तमान सुरक्षा स्थिति" else "Current Protection Status"
-        val labelLastUpdated = if (isHindi) "अंतिम अपडेट" else "Last Updated"
+        val labelStatus = if (isHindi) "सुरक्षा स्थिति" else "Protection Status"
+        val labelLastUpdated = if (isHindi) "अंतिम एनालिसिस" else "Last Analysis"
 
         val status = ProtectionStatusHelper.calculateStatus(history)
         val statusTextVal = if (isHindi) {
@@ -604,7 +604,7 @@ fun SettingsScreen(
                 ProtectionStatus.GOOD -> "अच्छा"
                 ProtectionStatus.NEEDS_ATTENTION -> "ध्यान दें"
                 ProtectionStatus.HIGH_RISK -> "उच्च जोखिम"
-                ProtectionStatus.UNKNOWN -> "अज्ञात"
+                ProtectionStatus.UNKNOWN -> "कोई स्कैन डेटा नहीं"
             }
         } else {
             when (status) {
@@ -612,7 +612,7 @@ fun SettingsScreen(
                 ProtectionStatus.GOOD -> "Good"
                 ProtectionStatus.NEEDS_ATTENTION -> "Attention"
                 ProtectionStatus.HIGH_RISK -> "High Risk"
-                ProtectionStatus.UNKNOWN -> "Unknown"
+                ProtectionStatus.UNKNOWN -> "No Scan Data"
             }
         }
 
@@ -628,9 +628,9 @@ fun SettingsScreen(
             "N/A"
         }
 
-        val labelTotal = if (isHindi) "कुल एनालिसिस" else "Total Analysis"
-        val labelScam = if (isHindi) "स्कैम डिटेक्टेड" else "Scam"
-        val labelSafe = if (isHindi) "सुरक्षित संदेश" else "Safe"
+        val labelTotal = if (isHindi) "कुल स्कैन" else "Total Scans"
+        val labelScam = if (isHindi) "खतरे मिले" else "Threats Detected"
+        val labelSafe = if (isHindi) "सुरक्षित संदेश" else "Safe Messages"
         val labelSuspicious = if (isHindi) "संदिग्ध संदेश" else "Suspicious"
         val labelScore = if (isHindi) "संरक्षण स्कोर" else "Protection Score"
         val labelAppVersion = if (isHindi) "ऐप संस्करण" else "App Version"
@@ -693,8 +693,7 @@ fun SettingsScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             val itemColor = if (label == labelStatus) {
                                 status.color
@@ -713,6 +712,7 @@ fun SettingsScreen(
                                 PremiumColors.PrimaryAccent
                             }
                             Row(
+                                modifier = Modifier.weight(0.55f),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
@@ -725,19 +725,25 @@ fun SettingsScreen(
                                 Text(
                                     text = label,
                                     style = TextStyle(
-                                        fontSize = 13.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = textPrimary
-                                    )
+                                    ),
+                                    maxLines = 2,
+                                    softWrap = true
                                 )
                             }
                             Text(
                                 text = value,
                                 style = TextStyle(
-                                    fontSize = 13.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = itemColor
-                                )
+                                    color = itemColor,
+                                    textAlign = TextAlign.End
+                                ),
+                                modifier = Modifier.weight(0.45f),
+                                maxLines = 1,
+                                softWrap = true
                             )
                         }
                     }
