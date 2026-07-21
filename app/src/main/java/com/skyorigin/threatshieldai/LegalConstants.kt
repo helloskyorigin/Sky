@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 
 object LegalConstants {
-    const val LEGAL_BASE_URL = "https://helloskyorigin.github.io/threatshield-ai-legal/"
+    const val LEGAL_BASE_URL = "https://helloskyorigin.github.io/threatshieldai-legal/"
 
     fun openLegalPortal(context: Context) {
         AnalyticsManager.getInstance(context).logLegalPortalOpened()

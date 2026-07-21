@@ -636,7 +636,7 @@ fun DashboardScreen(
                             subtitle = if (isHindi) "Coming soon v1.1" else "Coming soon v1.1",
                             icon = Icons.Rounded.Image,
                             tintColor = Color(0xFFEC4899),
-                            badgeText = if (isHindi) "जल्द" else "SOON",
+                            badgeText = "v1.1",
                             badgeColor = Color(0xFFF59E0B),
                             onClick = {
                                 android.widget.Toast.makeText(

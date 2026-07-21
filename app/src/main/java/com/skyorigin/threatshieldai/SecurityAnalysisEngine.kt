@@ -441,221 +441,117 @@ object SecurityAnalysisEngine {
                     aiStatus = "missing_key"
                     return@async null
                 }
-                try {
-                    val systemInstruction = """
-                        You are ThreatShield AI’s real-time security analyst.
+                val models = listOf("openai/gpt-oss-20b", "qwen/qwen3.6-27b", "openai/gpt-oss-120b")
+                var lastException: Exception? = null
+                var successfulModelResult: JSONObject? = null
 
-                        Your ONLY job is to read the full user message carefully and decide whether it is:
-                        SAFE, SUSPICIOUS, or DANGEROUS.
+                for (model in models) {
+                    try {
+                        val systemInstruction = """
+                            You are ThreatShield AI's security analyst. Analyze the user message to identify scams/phishing and return a structured JSON response.
 
-                        IMPORTANT RULES:
+                            CLASSIFICATION RULES:
+                            1. SAFE: For legitimate, normal, transactional, or informational messages (including genuine bank updates, OTPs, telecom recharges, shipping alerts). Keywords like bank, kyc, recharge, pay, link, verify, otp do NOT make a message dangerous unless scam intent is clear.
+                            2. SUSPICIOUS: For messages with possible warnings but lacking definitive proof of malice.
+                            3. DANGEROUS: For clear fraud (impersonation, credential theft, fake refund/kyc/lottery, OTP traps, payment manipulation).
+                            4. UNABLE_TO_DETERMINE: For extremely short, vague, or context-less messages (e.g., "Hello", "Call me").
 
-                        1. Do NOT classify a message as DANGEROUS just because it contains keywords like:
-                           bank, recharge, offer, click, verify, urgent, account, payment, OTP, PIN, password
+                            JSON OUTPUT SCHEMA:
+                            {
+                              "classification": "SAFE" | "SUSPICIOUS" | "DANGEROUS" | "UNABLE_TO_DETERMINE",
+                              "evidence_sufficiency": "SUFFICIENT" | "INSUFFICIENT",
+                              "scam_probability": 0-100,
+                              "confidence": 0-100,
+                              "scam_category": "OTP Scam" | "Bank Impersonation" | "Fake KYC" | "Parcel Scam" | "Lottery Scam" | "Investment Scam" | "Credential Harvesting" | "Fake Support" | "UPI Fraud" | "Refund Scam" | "Government Impersonation" | "Telecom Impersonation" | "Brand Impersonation" | "Social Engineering" | "None",
+                              "short_reason": "One concise sentence summarizing the main security/scam aspect.",
+                              "extracted_signals": ["Concise signal 1", "Concise signal 2"],
+                              "advice": ["Concise next step 1", "Concise next step 2"]
+                            }
 
-                           These words are only weak signals.
-                           They are not proof of fraud by themselves.
+                            OUTPUT RULES:
+                            - Output ONLY valid JSON. No markdown, no explanations outside JSON, no chain-of-thought, no prefix/suffix.
+                            - Keep "short_reason", "extracted_signals", and "advice" extremely concise to minimize token usage.
+                        """.trimIndent()
 
-                        2. Always analyze the FULL CONTEXT of the message:
-                           - What is the sender trying to make the user do?
-                           - Is the message normal, informational, promotional, transactional, or scam-like?
-                           - Is there urgency or pressure?
-                           - Is the sender pretending to be a trusted brand?
-                           - Is the message asking for OTP, PIN, password, payment approval, or sensitive information?
-                           - Does it contain a suspicious link or deceptive domain?
-                           - Is the message trying to create fear, urgency, reward temptation, or account theft?
-
-                        3. Think like a human scam analyst.
-                           Do not count keywords blindly.
-                           Do not use a keyword-only rule.
-                           Do not label normal telecom, bank, recharge, delivery, or promotional messages as dangerous unless the full context truly supports it.
-
-                        4. If the message is clearly normal, transactional, informational, or legitimate-looking,
-                           prefer SAFE.
-
-                        5. If the message has some suspicious elements but not enough proof,
-                           choose SUSPICIOUS.
-
-                        6. If the message shows strong scam intent, impersonation, credential theft, fake refund, fake KYC, OTP trap, payment scam, or malicious link behavior,
-                           choose DANGEROUS.
-
-                        7. If a URL is present in the message:
-                           - do NOT assume it is dangerous only because a URL exists
-                           - do NOT assume it is safe only because it looks normal
-                           - describe the link-related suspicion only from the message context
-                           - final URL reputation will be handled separately by security checks
-                           - If the URL was checked and has NO KNOWN THREAT, and you classify the message as SAFE: in your "short_reason", explain that the message context looks normal and that the link has no known threat.
-                           - If the URL was checked and has NO KNOWN THREAT, and you classify the message as SUSPICIOUS: in your "short_reason", explain why the message still looks suspicious even though the URL was not flagged.
-                           - If the URL was checked and has NO KNOWN THREAT, and you classify the message as DANGEROUS: in your "short_reason", explain that the message context itself is strongly scam-like even though the URL was not in threat databases.
-                           - If the message contains too little text / not enough context to analyze: classify as UNABLE_TO_DETERMINE, and in your "short_reason", say that there is not enough information to confidently classify it.
-
-                        8. Be careful with genuine messages from:
-                           - Airtel
-                           - Jio
-                           - banks
-                           - UPI/payment apps
-                           - delivery services
-                           - government services
-                           - e-commerce platforms
-
-                           Legitimate messages may contain words like recharge, verify, account, urgent, payment, click.
-                           That alone does NOT make them scams.
-
-                        9. Focus on actual fraud patterns:
-                           - impersonation
-                           - fake offers or fake prizes
-                           - fake refund claims
-                           - fake KYC / account verification traps
-                           - OTP / PIN / password theft
-                           - urgent pressure to act immediately
-                           - deceptive links
-                           - money transfer manipulation
-                           - banking / UPI fraud
-                           - phishing language
-
-                        10. Keep your output structured and consistent.
-
-                        OUTPUT RULES:
-
-                        Return ONLY valid JSON.
-                        Do not add markdown.
-                        Do not add explanations outside JSON.
-                        Do not include chain-of-thought.
-
-                        Use this schema:
-
-                        {
-                          "classification": "SAFE" | "SUSPICIOUS" | "DANGEROUS" | "UNABLE_TO_DETERMINE",
-                          "evidence_sufficiency": "SUFFICIENT" | "INSUFFICIENT",
-                          "scam_probability": 0-100,
-                          "short_reason": "one short clear sentence",
-                          "extracted_signals": [
-                            "signal 1",
-                            "signal 2",
-                            "signal 3"
-                          ],
-                          "advice": [
-                            "short action 1",
-                            "short action 2",
-                            "short action 3"
-                          ],
-                          "confidence": 0-100
+                        val requestBodyJson = JSONObject().apply {
+                            put("model", model)
+                            put("messages", JSONArray().apply {
+                                put(JSONObject().apply {
+                                    put("role", "system")
+                                    put("content", systemInstruction)
+                                })
+                                put(JSONObject().apply {
+                                    put("role", "user")
+                                    val langNote = if (isHindi) " (Provide analysis in Hindi/Hinglish)" else " (Provide analysis in English)"
+                                    val urlInfo = if (uniqueUrls.isNotEmpty()) {
+                                        "\nNote: The URL(s) in this message are successfully being checked by Google Web Risk. Analyze the context of the message itself to decide if it is SAFE, SUSPICIOUS, or DANGEROUS, or UNABLE_TO_DETERMINE."
+                                    } else ""
+                                    put("content", "Message to analyze: \"$normalizedMessage\"$urlInfo$langNote")
+                                })
+                            })
+                            put("response_format", JSONObject().apply {
+                                put("type", "json_object")
+                            })
+                            put("temperature", 0.1)
+                            put("max_tokens", 350)
+                            if (model.contains("gpt-oss")) {
+                                put("reasoning_effort", "low")
+                            }
                         }
 
-                        GUIDELINES FOR FIELDS:
+                        successfulModelResult = executeWithRetry("AI-$model", block = {
+                            kotlinx.coroutines.withTimeout(12000L) {
+                                val request = Request.Builder()
+                                    .url(GROQ_API_URL)
+                                    .addHeader("Authorization", "Bearer $groqKey")
+                                    .post(requestBodyJson.toString().toRequestBody("application/json".toMediaType()))
+                                    .build()
 
-                        - classification:
-                          Choose the final risk label based on overall context, not keywords alone.
-                          Choose UNABLE_TO_DETERMINE if the message is too short, too vague, or does not contain enough context or security signals to confidently classify (e.g., "Hello", "Call me", "Check this", "Important" without other clues).
-
-                        - evidence_sufficiency:
-                          Evaluate if the message has enough context/evidence. Short messages with strong signals like OTP are SUFFICIENT. Vague messages like "Check this link" or "Hello" are INSUFFICIENT.
-                          If INSUFFICIENT, classification should usually be UNABLE_TO_DETERMINE.
-
-                        - scam_probability:
-                          Reflect the probability of scam based on meaning, behavior, and intent.
-
-                        - short_reason:
-                          One clear sentence explaining why you chose the label.
-
-                        - extracted_signals:
-                          Only include real evidence from the message.
-                          Examples:
-                          "urgent pressure"
-                          "fake verification request"
-                          "suspicious link"
-                          "credential request"
-                          "brand impersonation"
-                          "payment manipulation"
-
-                        - advice:
-                          Give the most useful next steps.
-                          Keep them short and relevant.
-
-                        - confidence:
-                          How confident you are in your decision.
-
-                        SPECIAL ACCURACY RULE:
-
-                        If a message contains words like:
-                        - recharge
-                        - bank
-                        - account
-                        - verify
-                        - urgent
-                        - offer
-                        - click
-                        - OTP
-
-                        but the message context is otherwise normal and legitimate,
-                        do NOT mark it Dangerous automatically.
-                        Use the full message meaning first.
-
-                        If the message is a normal Airtel/Jio/bank/recharge/update message,
-                        classify it correctly as SAFE unless strong scam evidence exists.
-
-                        If the message is ambiguous, prefer SUSPICIOUS instead of incorrectly marking Dangerous.
-
-                        Be precise. Be conservative. Be context-aware.
-                    """.trimIndent()
-
-                    val requestBodyJson = JSONObject().apply {
-                        put("model", "openai/gpt-oss-20b")
-                        put("messages", JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("role", "system")
-                                put("content", systemInstruction)
-                            })
-                            put(JSONObject().apply {
-                                put("role", "user")
-                                val langNote = if (isHindi) " (Provide analysis in Hindi/Hinglish)" else " (Provide analysis in English)"
-                                val urlInfo = if (uniqueUrls.isNotEmpty()) {
-                                    "\nNote: The URL(s) in this message are successfully being checked by Google Web Risk. You must analyze the message context itself to decide if it is SAFE, SUSPICIOUS, or DANGEROUS, or UNABLE_TO_DETERMINE if there is insufficient evidence/vague text."
-                                } else ""
-                                put("content", "Message to analyze: \"$normalizedMessage\"$urlInfo$langNote")
-                            })
-                        })
-                        put("response_format", JSONObject().apply {
-                            put("type", "json_object")
-                        })
-                        put("temperature", 0.1)
-                    }
-
-                    executeWithRetry("AI", block = {
-                        kotlinx.coroutines.withTimeout(12000L) {
-                            val request = Request.Builder()
-                                .url(GROQ_API_URL)
-                                .addHeader("Authorization", "Bearer $groqKey")
-                                .post(requestBodyJson.toString().toRequestBody("application/json".toMediaType()))
-                                .build()
-
-                            client.newCall(request).execute().use { response ->
-                                if (response.isSuccessful) {
-                                    val body = response.body?.string() ?: "{}"
-                                    val jsonResponse = JSONObject(body)
-                                    val choices = jsonResponse.optJSONArray("choices")
-                                    val content = choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
-                                    if (content != null) {
-                                        JSONObject(content)
+                                client.newCall(request).execute().use { response ->
+                                    if (response.isSuccessful) {
+                                        val body = response.body?.string() ?: "{}"
+                                        val jsonResponse = JSONObject(body)
+                                        val choices = jsonResponse.optJSONArray("choices")
+                                        val content = choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
+                                        if (content != null) {
+                                            JSONObject(content)
+                                        } else {
+                                            throw PermanentApiException("Invalid response format from Groq")
+                                        }
                                     } else {
-                                        throw PermanentApiException("Invalid response format from Groq")
-                                    }
-                                } else {
-                                    val code = response.code
-                                    if (code in 500..599 || code == 429) {
-                                        throw IOException("Temporary server error: $code")
-                                    } else {
-                                        throw PermanentApiException("Permanent error: $code")
+                                        val code = response.code
+                                        if (code == 401 || code == 403) {
+                                            throw PermanentApiException("Authentication failed: $code")
+                                        } else if (code == 400) {
+                                            throw PermanentApiException("Bad request: $code")
+                                        } else if (code == 404 || code == 422) {
+                                            throw IOException("Model unavailable: $code")
+                                        } else if (code == 429) {
+                                            throw IOException("Rate limit / Quota limit: $code")
+                                        } else {
+                                            throw IOException("Server error: $code")
+                                        }
                                     }
                                 }
                             }
+                        }, isPermanentError = { it is PermanentApiException })
+
+                        aiStatus = "ok"
+                        break
+
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Model $model execution failed", e)
+                        lastException = e
+                        if (e is PermanentApiException) {
+                            break
                         }
-                    }, isPermanentError = { it is PermanentApiException })
-                } catch (e: Exception) {
-                    Log.e(TAG, "GPT-OSS 20B parallel API execution failed", e)
-                    aiStatus = "failed"
-                    null
+                    }
                 }
+
+                if (successfulModelResult == null) {
+                    aiStatus = "failed"
+                }
+                successfulModelResult
             }
 
             // B. Start URL scan tasks in parallel
@@ -1208,6 +1104,14 @@ object SecurityAnalysisEngine {
             }
         }
 
+        if (aiStatus == "failed") {
+            shortReason = if (isHindi) {
+                "AI विश्लेषण अस्थायी रूप से अनुपलब्ध है। संदेश की स्थानीय सुरक्षा नियमों द्वारा जांच की गई।"
+            } else {
+                "AI analysis temporarily unavailable. Message checked via local security rules."
+            }
+        }
+
         // TEXT RULES
         var textVerdict = when {
             aiClassification == "UNABLE_TO_DETERMINE" || aiClassification == "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
@@ -1215,15 +1119,6 @@ object SecurityAnalysisEngine {
             textScore >= 46 -> "Warning"
             textScore >= 21 -> "Suspicious"
             else -> "Safe"
-        }
-
-        if (extractedUrls.isEmpty()) {
-            textVerdict = when (aiClassification) {
-                "DANGEROUS" -> "Danger"
-                "SUSPICIOUS" -> "Suspicious"
-                "UNABLE_TO_DETERMINE", "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
-                else -> "Safe"
-            }
         }
 
         // URL SIGNALS & MULTIPLE URL LOGIC
@@ -1271,15 +1166,6 @@ object SecurityAnalysisEngine {
             
             // 8. Default Safe
             else -> "Safe"
-        }
-
-        if (extractedUrls.isEmpty()) {
-            finalVerdict = when (aiClassification) {
-                "DANGEROUS" -> "Danger"
-                "SUSPICIOUS" -> "Suspicious"
-                "UNABLE_TO_DETERMINE", "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
-                else -> "Safe"
-            }
         }
 
         // SERVICE FAILURE EVALUATION
@@ -1341,7 +1227,7 @@ object SecurityAnalysisEngine {
                 if (textScore in 46..75) textScore else 60
             }
             "Suspicious" -> {
-                if (isCase3 || extractedUrls.isEmpty()) {
+                if (isCase3) {
                     if (textScore in 21..75) textScore else 45
                 } else {
                     if (textScore in 21..45) textScore else 35

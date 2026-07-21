@@ -282,7 +282,7 @@ fun AboutScreen(
                             label = "Developer",
                             value = "Sky Origin",
                             onClick = {
-                                try { uriHandler.openUri("https://helloskyorigin.github.io/threatshield-ai-legal/") } catch (e: Exception) {}
+                                try { uriHandler.openUri(LegalConstants.LEGAL_BASE_URL) } catch (e: Exception) {}
                             }
                         )
                         HorizontalDivider(
@@ -308,7 +308,7 @@ fun AboutScreen(
                             label = "Official Web",
                             value = "Website",
                             onClick = {
-                                try { uriHandler.openUri("https://helloskyorigin.github.io/threatshield-ai-legal/") } catch (e: Exception) {}
+                                try { uriHandler.openUri(LegalConstants.LEGAL_BASE_URL) } catch (e: Exception) {}
                             }
                         )
                     }

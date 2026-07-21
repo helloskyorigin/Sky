@@ -127,21 +127,32 @@ fun FeedbackDialog(
                                 viewModel.dismissFeedbackLater()
                                 onDismiss()
                             },
-                            onSubmit = {
+                            isSubmitting = isSubmitting,
+                            onSubmit = { feedbackMessage ->
                                 if (rating >= 4) {
                                     isSubmitting = true
-                                    triggerPlayStoreRating(context, activity, viewModel, rating) {
+                                    openPlayStoreListing(context, viewModel, rating) {
                                         isSubmitting = false
                                         stage = FeedbackStage.SUCCESS
                                     }
                                 } else {
-                                    // Pre-select Category based on Rating
-                                    selectedCategory = if (isHindi) {
-                                        "सामान्य प्रतिक्रिया (General Feedback)"
-                                    } else {
-                                        "General Feedback"
+                                    isSubmitting = true
+                                    viewModel.submitUserFeedback(
+                                        rating = rating,
+                                        category = "User Feedback (1-3)",
+                                        message = feedbackMessage.ifBlank { "No optional comment provided" }
+                                    ) { success ->
+                                        isSubmitting = false
+                                        if (success) {
+                                            stage = FeedbackStage.SUCCESS
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                if (isHindi) "प्रतिक्रिया सबमिट करने में विफल" else "Failed to submit feedback",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
-                                    stage = FeedbackStage.FORM
                                 }
                             },
                             textPrimary = textPrimary,
@@ -205,16 +216,20 @@ fun FeedbackDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RatingStageContent(
     isHindi: Boolean,
     rating: Int,
     onRatingChange: (Int) -> Unit,
     onLater: () -> Unit,
-    onSubmit: () -> Unit,
+    isSubmitting: Boolean,
+    onSubmit: (String) -> Unit,
     textPrimary: Color,
     textSecondary: Color
 ) {
+    var feedbackText by remember { mutableStateOf("") }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,7 +246,7 @@ private fun RatingStageContent(
         )
 
         Text(
-            text = if (isHindi) "Enjoying ThreatShield AI?" else "Enjoying ThreatShield AI?",
+            text = "Enjoying ThreatShield AI?",
             style = TextStyle(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -243,7 +258,11 @@ private fun RatingStageContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = if (isHindi) "Your feedback helps us improve ThreatShield AI." else "Your feedback helps us improve ThreatShield AI.",
+            text = if (rating >= 4) {
+                "Your rating helps us improve and reach more users."
+            } else {
+                "Your feedback helps us improve ThreatShield AI."
+            },
             style = TextStyle(
                 fontSize = 14.sp,
                 color = textSecondary,
@@ -271,13 +290,64 @@ private fun RatingStageContent(
                     modifier = Modifier
                         .size(40.dp)
                         .scale(scale)
-                        .clickable { onRatingChange(i) }
+                        .clickable(enabled = !isSubmitting) { onRatingChange(i) }
                         .testTag("star_rating_$i")
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // Show a short optional feedback text box for 1-3 stars
+        AnimatedVisibility(
+            visible = rating in 1..3,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(20.dp))
+                OutlinedTextField(
+                    value = feedbackText,
+                    onValueChange = { if (it.length <= 500) feedbackText = it },
+                    placeholder = { 
+                        Text(
+                            text = if (isHindi) "वैकल्पिक टिप्पणी..." else "Write here... (optional)",
+                            color = textSecondary.copy(alpha = 0.6f)
+                        ) 
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PremiumColors.PrimaryAccent,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedTextColor = textPrimary,
+                        unfocusedTextColor = textPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    minLines = 3,
+                    maxLines = 4,
+                    enabled = !isSubmitting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("feedback_optional_message_input")
+                )
+                
+                // Character count
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Text(
+                        text = "${feedbackText.length} / 500",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            color = textSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -285,6 +355,7 @@ private fun RatingStageContent(
         ) {
             OutlinedButton(
                 onClick = onLater,
+                enabled = !isSubmitting,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -300,8 +371,8 @@ private fun RatingStageContent(
             }
 
             Button(
-                onClick = onSubmit,
-                enabled = rating > 0,
+                onClick = { onSubmit(feedbackText) },
+                enabled = rating > 0 && !isSubmitting,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PremiumColors.PrimaryAccent,
                     contentColor = Color.White
@@ -312,14 +383,22 @@ private fun RatingStageContent(
                     .height(48.dp)
                     .testTag("feedback_submit_button")
             ) {
-                Text(
-                    text = if (rating == 5) {
-                        if (isHindi) "रेट करें (Rate)" else "Rate App"
-                    } else {
-                        if (isHindi) "आगे बढ़ें (Next)" else "Next"
-                    },
-                    fontWeight = FontWeight.Bold
-                )
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = when (rating) {
+                            0 -> "Submit"
+                            in 1..3 -> "Send Feedback"
+                            else -> "Rate on Google Play"
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -581,65 +660,45 @@ private fun SuccessStageContent(
     }
 }
 
-private fun triggerPlayStoreRating(
-    context: Context,
-    activity: Activity?,
-    viewModel: ScamLensViewModel,
-    rating: Int,
-    onComplete: () -> Unit
-) {
-    if (activity == null) {
-        openPlayStoreFallback(context, viewModel, rating, onComplete)
-        return
-    }
-
-    val reviewManager = ReviewManagerFactory.create(context)
-    val request = reviewManager.requestReviewFlow()
-    request.addOnCompleteListener { task ->
-        if (task.isSuccessful) {
-            val reviewInfo = task.result
-            val flow = reviewManager.launchReviewFlow(activity, reviewInfo)
-            flow.addOnCompleteListener { _ ->
-                // Save Play Store feedback document locally and schedule sync
-                viewModel.submitUserFeedback(
-                    rating = rating,
-                    category = "Play Store",
-                    message = "In-App Play Store review successfully completed with $rating-star rating."
-                ) {
-                    onComplete()
-                }
-            }
-        } else {
-            openPlayStoreFallback(context, viewModel, rating, onComplete)
-        }
-    }
-}
-
-private fun openPlayStoreFallback(
+private fun openPlayStoreListing(
     context: Context,
     viewModel: ScamLensViewModel,
     rating: Int,
     onComplete: () -> Unit
 ) {
+    val packageName = context.packageName
+    val playStoreUri = Uri.parse("market://details?id=$packageName")
+    val webUri = Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+    
     try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}"))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Intent.ACTION_VIEW, playStoreUri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET)
+            setPackage("com.android.vending")
+        }
         context.startActivity(intent)
     } catch (e: Exception) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent = Intent(Intent.ACTION_VIEW, playStoreUri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             context.startActivity(intent)
-        } catch (ex: Exception) {
-            // Never crash if no compatible app/browser is available
-            ex.printStackTrace()
+        } catch (e2: Exception) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, webUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e3: Exception) {
+                // Never crash
+                e3.printStackTrace()
+            }
         }
     }
     
     viewModel.submitUserFeedback(
         rating = rating,
-        category = "Play Store Fallback",
-        message = "Fallback to Play Store URL opened for $rating-star rating."
+        category = "Play Store Rating",
+        message = "Opened Google Play Store listing for $rating-star rating."
     ) {
         onComplete()
     }

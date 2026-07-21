@@ -1,0 +1,20 @@
+svg = """<svg width="200" height="200" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 50 5 L 12 18 C 12 48 26 78 50 92 Z" fill="#9CA3AF"/>
+  <path d="M 50 5 L 88 18 C 88 48 74 78 50 92 Z" fill="#2563EB"/>
+  
+  <path d="M 50 8 L 16 20 C 16 47 28 74 50 88 Z" fill="#111827"/>
+  <path d="M 50 8 L 84 20 C 84 47 72 74 50 88 Z" fill="#1E3A8A"/>
+  
+  <!-- Silver Crescent -->
+  <path d="M 64 34 A 25 25 0 0 0 32 62 A 32 32 0 0 1 64 34 Z" fill="#D1D5DB"/>
+  
+  <!-- Blue Crescent -->
+  <path d="M 36 66 A 25 25 0 0 0 68 38 A 32 32 0 0 1 36 66 Z" fill="#60A5FA"/>
+
+  <!-- Star -->
+  <path d="M 50 43 L 51 49 L 57 50 L 51 51 L 50 57 L 49 51 L 43 50 L 49 49 Z" fill="#FFFFFF"/>
+</svg>"""
+
+with open("test3.html", "w") as f:
+    f.write(f"<html><body>{svg}</body></html>")
+print("done")
