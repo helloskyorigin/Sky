@@ -177,5 +177,11 @@ data class DailyChallenge(
     val options: List<LocalizedText>,
     val correctOptionIndex: Int,
     val explanation: LocalizedText,
-    val didYouKnow: LocalizedText
+    val didYouKnow: LocalizedText,
+    
+    // Premium fields
+    val title: LocalizedText = LocalizedText("", ""),
+    val scenario: LocalizedText = LocalizedText("", ""),
+    val warningSigns: List<LocalizedText> = emptyList(),
+    val howToStaySafe: List<LocalizedText> = emptyList()
 )

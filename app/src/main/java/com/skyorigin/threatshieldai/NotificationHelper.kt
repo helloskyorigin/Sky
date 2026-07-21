@@ -36,6 +36,8 @@ object NotificationHelper {
 
     fun scheduleDailyChallengeNotification(context: Context) {
         DailyChallengeWorker.schedule(context)
+        DailySafetyTipWorker.schedule(context)
+        QuickChallengeWorker.schedule(context)
     }
 
     fun showDailyChallengeNotification(context: Context) {
@@ -48,25 +50,15 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val titles = listOf(
-            "🛡️ Today's Cyber Safety Challenge",
-            "🛡️ Daily Scam Challenge Ready",
-            "🛡️ Test Your Threat Radar",
-            "🛡️ New Security Challenge"
-        )
-        val bodies = listOf(
-            "Can you identify today's scam in under 30 seconds? Tap to test yourself and improve your cyber safety.",
-            "A new scam message is waiting for your analysis. Tap to see if you can spot it.",
-            "Stay sharp! Tap to complete today's quick cyber security challenge.",
-            "Boost your threat awareness score by solving today's challenge."
-        )
+        val title = "🛡️ Today's Scam Challenge is ready!"
+        val body = "Can you spot the threat today? Tap to test your threat shield."
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_shield_notif)
             .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
-            .setContentTitle(titles.random())
-            .setContentText(bodies.random())
-            .setStyle(NotificationCompat.BigTextStyle().bigText(bodies.random()))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -74,6 +66,70 @@ object NotificationHelper {
         with(NotificationManagerCompat.from(context)) {
             try {
                 notify(1001, builder.build())
+            } catch (e: SecurityException) {
+                // Ignore missing notification permission in tests or pre-OREO
+            }
+        }
+    }
+
+    fun showDailySafetyTipNotification(context: Context) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "daily_tip")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 2002, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = "💡 Today's Safety Tip is ready!"
+        val body = "Stay protected with today's essential security recommendation."
+
+        val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_shield_notif)
+            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        with(NotificationManagerCompat.from(context)) {
+            try {
+                notify(1003, builder.build())
+            } catch (e: SecurityException) {
+                // Ignore missing notification permission in tests or pre-OREO
+            }
+        }
+    }
+
+    fun showQuickChallengeNotification(context: Context) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "quick_quiz")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 2003, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = "🧠 Your Quick Challenge is ready!"
+        val body = "Test your cybersecurity knowledge with the next unlocked level."
+
+        val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_shield_notif)
+            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        with(NotificationManagerCompat.from(context)) {
+            try {
+                notify(1004, builder.build())
             } catch (e: SecurityException) {
                 // Ignore missing notification permission in tests or pre-OREO
             }

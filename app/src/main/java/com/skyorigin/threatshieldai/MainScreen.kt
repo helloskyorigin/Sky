@@ -391,8 +391,14 @@ fun MainScreen(
                 )
             }
             composable("learn") {
-                DailyChallengeScreen(
+                LearnScreen(
                     viewModel = sharedViewModel,
+                    onNavigateToChallenge = { mainNavController.navigate("daily_challenge") },
+                    onNavigateToAcademy = { mainNavController.navigate("scam_academy") },
+                    onNavigateToDailyTip = { mainNavController.navigate("daily_safety_tip") },
+                    onNavigateToQuiz = { mainNavController.navigate("quick_quiz") },
+                    onNavigateToCommonScams = { mainNavController.navigate("common_scam_examples") },
+                    onNavigateToDictionary = { mainNavController.navigate("cyber_dictionary") },
                     onNavigateBack = {
                         bottomNavController.navigate("dashboard") {
                             popUpTo(bottomNavController.graph.startDestinationId) { saveState = true }

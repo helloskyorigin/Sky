@@ -276,13 +276,13 @@ fun AboutScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                        val context = androidx.compose.ui.platform.LocalContext.current
                         SupportMetadataRow(
                             icon = Icons.Rounded.Business,
                             label = "Developer",
                             value = "Sky Origin",
                             onClick = {
-                                try { uriHandler.openUri(LegalConstants.LEGAL_BASE_URL) } catch (e: Exception) {}
+                                LegalConstants.openLegalPortal(context)
                             }
                         )
                         HorizontalDivider(
@@ -295,7 +295,7 @@ fun AboutScreen(
                             label = "Support Email",
                             value = "hello.skyorigin@gmail.com",
                             onClick = {
-                                try { uriHandler.openUri("mailto:hello.skyorigin@gmail.com") } catch (e: Exception) {}
+                                LegalConstants.openContactSupport(context)
                             }
                         )
                         HorizontalDivider(
@@ -308,7 +308,7 @@ fun AboutScreen(
                             label = "Official Web",
                             value = "Website",
                             onClick = {
-                                try { uriHandler.openUri(LegalConstants.LEGAL_BASE_URL) } catch (e: Exception) {}
+                                LegalConstants.openLegalPortal(context)
                             }
                         )
                     }

@@ -17,6 +17,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.skyorigin.threatshieldai.ui.theme.MyApplicationTheme
+import com.skyorigin.threatshieldai.ui.theme.PremiumColors
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import android.content.Intent
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
@@ -94,6 +98,16 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("daily_challenge") {
                                 popUpTo("main") { inclusive = false }
                             }
+                        } else if (intent.getStringExtra("navigate_to") == "daily_tip") {
+                            intent.removeExtra("navigate_to")
+                            navController.navigate("daily_safety_tip") {
+                                popUpTo("main") { inclusive = false }
+                            }
+                        } else if (intent.getStringExtra("navigate_to") == "quick_quiz") {
+                            intent.removeExtra("navigate_to")
+                            navController.navigate("quick_quiz") {
+                                popUpTo("main") { inclusive = false }
+                            }
                         }
                     }
                 }
@@ -103,7 +117,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     NavHost(
                         navController = navController,
-                        startDestination = if (intent?.getStringExtra("navigate_to") == "result" || intent?.getStringExtra("navigate_to") == "daily_challenge") "main" else "splash"
+                        startDestination = if (intent?.hasExtra("navigate_to") == true && intent?.getStringExtra("navigate_to") != null) "main" else "splash"
                     ) {
                             composable(
                                 route = "splash",
@@ -279,6 +293,99 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(
+                                route = "scam_academy",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) {
+                                ScamAcademyScreen(
+                                    viewModel = sharedViewModel,
+                                    onNavigateToCategory = { categoryId ->
+                                        navController.navigate("scam_academy_detail/$categoryId")
+                                    },
+                                    onNavigateBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
+                                route = "scam_academy_detail/{categoryId}",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) { backStackEntry ->
+                                val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+                                ScamAcademyDetailScreen(
+                                    categoryId = categoryId,
+                                    viewModel = sharedViewModel,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
+                                route = "daily_safety_tip",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) {
+                                DailySafetyTipScreen(
+                                    viewModel = sharedViewModel,
+                                    onNavigateBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
+                                route = "quick_quiz",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) {
+                                QuickQuizScreen(
+                                    viewModel = sharedViewModel,
+                                    onNavigateBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
+                                route = "common_scam_examples",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) {
+                                CommonScamExamplesScreen(
+                                    viewModel = sharedViewModel,
+                                    onNavigateBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
+                                route = "cyber_dictionary",
+                                enterTransition = {
+                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
+                                },
+                                exitTransition = {
+                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
+                                }
+                            ) {
+                                LearnPlaceholderScreen(
+                                    title = if (sharedViewModel.currentLanguage == "hi") "साइबर शब्दकोश" else "Cyber Dictionary",
+                                    icon = Icons.Rounded.MenuBook,
+                                    color = Color(0xFF06B6D4),
+                                    moduleType = "cyber_dictionary",
+                                    viewModel = sharedViewModel,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(
                                 route = "inventory"
                             ) {
                                 InventoryScreen(
@@ -287,47 +394,7 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() }
                                 )
                             }
-                            composable(
-                                route = "webview/{docId}",
-                                arguments = listOf(
-                                    androidx.navigation.navArgument("docId") { type = androidx.navigation.NavType.StringType }
-                                ),
-                                enterTransition = {
-                                    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(400))
-                                },
-                                exitTransition = {
-                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(400))
-                                }
-                            ) { backStackEntry ->
-                                val docId = backStackEntry.arguments?.getString("docId") ?: "privacy"
-                                val url = LegalConstants.LEGAL_BASE_URL
-                                val title = when(docId) {
-                                    "privacy" -> "Privacy Policy"
-                                    "terms" -> "Terms of Use"
-                                    "disclaimer" -> "Security Disclaimer"
-                                    "contact" -> "Contact Support"
-                                    else -> "Legal Portal"
-                                }
-
-                                val webviewContext = androidx.compose.ui.platform.LocalContext.current
-                                LaunchedEffect(docId) {
-                                    val am = AnalyticsManager.getInstance(webviewContext)
-                                    am.logScreenView("webview_$docId")
-                                    when (docId) {
-                                        "privacy" -> am.logPrivacyPolicyOpened()
-                                        "terms" -> am.logTermsOpened()
-                                        "disclaimer" -> am.logSecurityDisclaimerOpened()
-                                        "contact" -> am.logContactSupportOpened()
-                                        else -> am.logLegalPortalOpened()
-                                    }
-                                }
-
-                                AppWebViewScreen(
-                                    title = title,
-                                    url = url,
-                                    onNavigateBack = { navController.popBackStack() }
-                                )
-                            }
+                            // Removed webview route
                         }
                     }
                 }

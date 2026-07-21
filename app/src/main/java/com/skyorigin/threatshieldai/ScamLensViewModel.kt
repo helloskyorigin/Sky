@@ -195,6 +195,17 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
 
     // Daily Challenge States
     var currentChallengeDay by mutableStateOf(prefs.getInt("challenge_day", 1))
+    
+    // Quick Challenge (formerly Quick Quiz) Unlocked count (1 to 50)
+    var quickChallengeUnlockedCount by mutableStateOf(prefs.getInt("quick_challenge_unlocked_count", 1))
+
+    fun unlockNextQuickChallenge(id: Int) {
+        if (id == quickChallengeUnlockedCount && id < 50) {
+            val nextVal = id + 1
+            quickChallengeUnlockedCount = nextVal
+            prefs.edit().putInt("quick_challenge_unlocked_count", nextVal).apply()
+        }
+    }
     var challengeCompletedToday by mutableStateOf(prefs.getBoolean("challenge_completed_today", false))
     var selectedOptionIndex by mutableStateOf(
         if (prefs.contains("selected_option_index")) prefs.getInt("selected_option_index", -1) else -1
@@ -207,6 +218,23 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
 
     val currentChallenge: DailyChallenge
         get() = getChallengeForDay(currentChallengeDay)
+
+    // Bookmarks for Common Scam Examples
+    private val _bookmarkedScamIds = mutableStateOf<Set<Int>>(
+        prefs.getStringSet("bookmarked_scams", emptySet())?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+    )
+    val bookmarkedScamIds: androidx.compose.runtime.State<Set<Int>> = _bookmarkedScamIds
+
+    fun toggleScamBookmark(scamId: Int) {
+        val current = _bookmarkedScamIds.value
+        val updated = if (current.contains(scamId)) {
+            current - scamId
+        } else {
+            current + scamId
+        }
+        _bookmarkedScamIds.value = updated
+        prefs.edit().putStringSet("bookmarked_scams", updated.map { it.toString() }.toSet()).apply()
+    }
 
     var analysisJob: kotlinx.coroutines.Job? = null
 
@@ -417,23 +445,9 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             launch {
                 preferencesRepo.lastChallengeDateFlow.collect { lastDate ->
                     lastChallengeDate = lastDate
-                    val todayStr = getTodayString()
-                    if (lastDate != todayStr) {
-                        // It's a new day! If completed yesterday, advance day.
-                        if (challengeCompletedToday) {
-                            currentChallengeDay += 1
-                            challengeCompletedToday = false
-                            selectedOptionIndex = -1
-                            preferencesRepo.resetChallengeForNewDay(currentChallengeDay)
-                        }
-                        
-                        // Check if streak is broken
-                        val yesterdayStr = getYesterdayString()
-                        if (lastDate != yesterdayStr && challengeStreak > 0) {
-                            challengeStreak = 0
-                            preferencesRepo.setChallengeStreak(0)
-                        }
-                    }
+                    val today = getTodayChallengeDay()
+                    updateChallengeStateForDay(today)
+                    recalculateChallengeMetrics()
                 }
             }
 
@@ -631,50 +645,100 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun completeChallenge(selectedIndex: Int) {
-        if (challengeCompletedToday) return
+    fun getTodayChallengeDay(): Int {
+        val calendar = java.util.Calendar.getInstance()
+        val day = calendar.get(java.util.Calendar.DAY_OF_YEAR)
+        return if (day > 365) 365 else if (day < 1) 1 else day
+    }
 
-        this.selectedOptionIndex = selectedIndex
-        this.challengeCompletedToday = true
-        
-        challengeStreak += 1
-        
-        if (challengeStreak > longestStreak) {
-            longestStreak = challengeStreak
-        }
-        
-        totalCompleted += 1
-        totalXp += 50 // Award 50 XP
-        
-        val todayStr = getTodayString()
-        lastChallengeDate = todayStr
+    fun updateChallengeStateForDay(day: Int) {
+        val d = if (day < 1) 1 else if (day > 365) 365 else day
+        currentChallengeDay = d
+        challengeCompletedToday = prefs.getBoolean("challenge_completed_$d", false)
+        selectedOptionIndex = prefs.getInt("challenge_selected_$d", -1)
+    }
 
-        viewModelScope.launch {
-            preferencesRepo.saveChallengeSubmission(
-                selectedIndex = selectedIndex,
-                completed = true,
-                streak = challengeStreak,
-                longest = longestStreak,
-                completedCount = totalCompleted,
-                xp = totalXp,
-                challengeDate = todayStr
-            )
+    fun moveToPreviousChallenge() {
+        if (currentChallengeDay > 1) {
+            updateChallengeStateForDay(currentChallengeDay - 1)
         }
     }
 
-    fun moveToNextDayChallenge() {
-        currentChallengeDay += 1
-        challengeCompletedToday = false
-        selectedOptionIndex = -1
+    fun moveToNextChallenge() {
+        if (currentChallengeDay < 365) {
+            updateChallengeStateForDay(currentChallengeDay + 1)
+        }
+    }
+
+    fun completeChallenge(selectedIndex: Int) {
+        val day = currentChallengeDay
+        if (prefs.getBoolean("challenge_completed_$day", false)) return
+
+        prefs.edit()
+            .putBoolean("challenge_completed_$day", true)
+            .putInt("challenge_selected_$day", selectedIndex)
+            .apply()
+
+        challengeCompletedToday = true
+        selectedOptionIndex = selectedIndex
+        totalXp += 50
+        prefs.edit().putInt("total_xp", totalXp).apply()
+
+        recalculateChallengeMetrics()
+    }
+
+    fun recalculateChallengeMetrics() {
+        var totalComp = 0
+        var currentStr = 0
+        var bestStr = 0
+        var tempStr = 0
         
+        val today = getTodayChallengeDay()
+        
+        for (d in 1..365) {
+            if (prefs.getBoolean("challenge_completed_$d", false)) {
+                totalComp++
+                tempStr++
+                if (tempStr > bestStr) {
+                    bestStr = tempStr
+                }
+            } else {
+                tempStr = 0
+            }
+        }
+        
+        var checkDay = today
+        if (!prefs.getBoolean("challenge_completed_$today", false)) {
+            checkDay = today - 1
+        }
+        
+        while (checkDay >= 1 && prefs.getBoolean("challenge_completed_$checkDay", false)) {
+            currentStr++
+            checkDay--
+        }
+        
+        this.totalCompleted = totalComp
+        this.challengeStreak = currentStr
+        this.longestStreak = bestStr
+        
+        prefs.edit()
+            .putInt("total_completed", totalComp)
+            .putInt("challenge_streak", currentStr)
+            .putInt("longest_streak", bestStr)
+            .apply()
+            
         viewModelScope.launch {
-            preferencesRepo.resetChallengeForNewDay(currentChallengeDay)
+            preferencesRepo.setTotalCompleted(totalComp)
+            preferencesRepo.setChallengeStreak(currentStr)
+            preferencesRepo.setLongestStreak(bestStr)
+            preferencesRepo.setChallengeDay(today)
+            preferencesRepo.setChallengeCompletedToday(prefs.getBoolean("challenge_completed_$today", false))
+            preferencesRepo.setSelectedOptionIndex(prefs.getInt("challenge_selected_$today", -1))
         }
     }
 
     private fun getChallengeForDay(day: Int): DailyChallenge {
-        val index = (day - 1) % challengesList.size
-        return challengesList[index]
+        return ScamChallengeGenerator.getChallengeForDay(day)
     }
 
     private fun getTodayString(): String {
@@ -870,756 +934,4 @@ enum class ThemeMode {
     SYSTEM, LIGHT, DARK
 }
 
-private val challengesList = listOf(
-    DailyChallenge(
-        id = "CH_01",
-        category = "PHISHING",
-        difficulty = "Easy",
-        difficultyHi = "Easy",
-        scamTypeLabel = "Phishing Link",
-        scamTypeLabelHi = "Phishing Link",
-        question = LocalizedText(
-            en = "You receive an SMS: 'Dear SBI user, your NetBanking account will be blocked today. Please click http://sbi-verify.org/login to re-verify your KYC immediately.' Is this a scam?",
-            hi = "आपको एक SMS मिलता है: 'प्रिय SBI User, आपका NetBanking Account आज block हो जाएगा। कृपया अपनी KYC को तुरंत Verify करने के लिए http://sbi-verify.org/login पर click करें।' क्या यह एक Scam है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "This is a typical phishing scam. Banks will never ask you to click a non-official link (like sbi-verify.org) to update KYC or netbanking.",
-            hi = "यह एक typical Phishing Scam है। Banks कभी भी आपसे KYC या NetBanking update करने के लिए किसी non-official Link (जैसे sbi-verify.org) पर click करने के लिए नहीं कहेंगे।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Phishing scams make up over 40% of all reported digital frauds in India annually.",
-            hi = "क्या आप जानते हैं? भारत में हर साल report होने वाले कुल digital frauds में Phishing Scams का हिस्सा 40% से अधिक है।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_02",
-        category = "LOTTERY",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Fake Reward",
-        scamTypeLabelHi = "Fake Reward",
-        question = LocalizedText(
-            en = "An SMS states: 'Congratulations! You have won a cash reward of ₹50,000. Send ₹500 processing fees to claim it.' Is this a scam?",
-            hi = "एक SMS में लिखा है: 'बधाई हो! आपने ₹50,000 का Cash Reward जीता है। इसे प्राप्त करने के लिए ₹500 Processing Fees भेजें।' क्या यह एक Scam है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any reward that asks you to pay money upfront in order to receive your prize is a scam.",
-            hi = "कोई भी Reward जो आपको अपना prize प्राप्त करने के लिए upfront payment या Processing Fees देने के लिए कहे, वह Scam है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Official sweepstakes and lotteries never require winners to pay fees upfront.",
-            hi = "क्या आप जानते हैं? Official sweepstakes और lotteries में कभी भी winners को upfront payment करने की आवश्यकता नहीं होती है।"
-        )
-    )
-,
-    DailyChallenge(
-        id = "CH_03",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 3: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 3: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_04",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 4: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 4: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_05",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 5: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 5: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_06",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 6: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 6: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_07",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 7: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 7: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_08",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 8: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 8: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_09",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 9: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 9: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_10",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 10: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 10: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_11",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 11: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 11: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_12",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 12: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 12: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_13",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 13: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 13: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_14",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 14: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 14: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_15",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 15: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 15: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_16",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 16: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 16: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_17",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 17: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 17: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_18",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 18: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 18: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_19",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 19: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 19: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_20",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 20: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 20: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_21",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 21: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 21: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_22",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 22: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 22: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_23",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 23: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 23: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_24",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 24: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 24: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_25",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 25: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 25: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_26",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 26: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 26: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_27",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 27: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 27: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_28",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 28: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 28: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_29",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 29: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 29: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    ),
-    DailyChallenge(
-        id = "CH_30",
-        category = "SCAM",
-        difficulty = "Medium",
-        difficultyHi = "Medium",
-        scamTypeLabel = "Suspicious Message",
-        scamTypeLabelHi = "संदिग्ध संदेश",
-        question = LocalizedText(
-            en = "Message 30: 'Your account is locked. Click here to unlock.' Is this a scam?",
-            hi = "संदेश 30: 'आपका अकाउंट लॉक हो गया है। अनलॉक करने के लिए यहां क्लिक करें।' क्या यह एक स्कैम है?"
-        ),
-        options = listOf(
-            LocalizedText(en = "Yes, it's a scam", hi = "हाँ, यह एक Scam है"),
-            LocalizedText(en = "No, it's safe", hi = "नहीं, यह Safe है")
-        ),
-        correctOptionIndex = 0,
-        explanation = LocalizedText(
-            en = "Any message asking you to click a link to unlock your account is highly suspicious.",
-            hi = "कोई भी संदेश जो आपको अपना अकाउंट अनलॉक करने के लिए लिंक पर क्लिक करने के लिए कहता है, वह अत्यधिक संदिग्ध है।"
-        ),
-        didYouKnow = LocalizedText(
-            en = "Did you know? Always verify account statuses directly through the official app or website.",
-            hi = "क्या आप जानते हैं? हमेशा आधिकारिक ऐप या वेबसाइट के माध्यम से सीधे अकाउंट की स्थिति की पुष्टि करें।"
-        )
-    )
-)
+private val challengesList = emptyList<DailyChallenge>()

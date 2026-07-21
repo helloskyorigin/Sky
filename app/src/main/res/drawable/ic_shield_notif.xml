@@ -6,13 +6,13 @@
     <group>
         <path
             android:strokeColor="#FFFFFF"
-            android:strokeWidth="4"
+            android:strokeWidth="6"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
-            android:pathData="M 50,2 L 10,16 C 10,55 25,80 50,98 C 75,80 90,55 90,16 Z"/>
+            android:pathData="M 50,4 C 35,8 18,14 8,24 C 8,60 22,84 50,96 C 78,84 92,60 92,24 C 82,14 65,8 50,4 Z"/>
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M 60,30 A 24,24 0 0,0 30,60 A 32,32 0 0,1 60,30 Z M 40,70 A 24,24 0 0,0 70,40 A 32,32 0 0,1 40,70 Z"/>
+            android:pathData="M 58,34 A 20,20 0 0,0 34,58 A 27,27 0 0,1 58,34 Z M 42,66 A 20,20 0 0,0 66,42 A 27,27 0 0,1 42,66 Z"/>
         <path
             android:fillColor="#FFFFFF"
             android:pathData="M 50,44 L 51.5,48.5 L 56,50 L 51.5,51.5 L 50,56 L 48.5,51.5 L 44,50 L 48.5,48.5 Z"/>

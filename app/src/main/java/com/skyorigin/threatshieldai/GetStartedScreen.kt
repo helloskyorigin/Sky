@@ -117,7 +117,7 @@ fun GetStartedScreen(
                 withStyle(style = SpanStyle(color = Color(0xFF4B5563), fontSize = 14.sp)) {
                     append("I agree to the ")
                 }
-                pushStringAnnotation(tag = "terms", annotation = LegalConstants.LEGAL_BASE_URL + "terms.html")
+                pushStringAnnotation(tag = "terms", annotation = "terms")
                 withStyle(style = SpanStyle(color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)) {
                     append("Terms of Service")
                 }
@@ -125,7 +125,7 @@ fun GetStartedScreen(
                 withStyle(style = SpanStyle(color = Color(0xFF4B5563), fontSize = 14.sp)) {
                     append(" and ")
                 }
-                pushStringAnnotation(tag = "privacy", annotation = LegalConstants.LEGAL_BASE_URL + "privacy.html")
+                pushStringAnnotation(tag = "privacy", annotation = "privacy")
                 withStyle(style = SpanStyle(color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)) {
                     append("Privacy Policy")
                 }
@@ -156,20 +156,12 @@ fun GetStartedScreen(
                     text = annotatedText,
                     onClick = { offset ->
                         annotatedText.getStringAnnotations(tag = "terms", start = offset, end = offset)
-                            .firstOrNull()?.let { annotation ->
-                                try {
-                                    uriHandler.openUri(annotation.item)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
+                            .firstOrNull()?.let {
+                                LegalConstants.openTermsAndConditions(context)
                             }
                         annotatedText.getStringAnnotations(tag = "privacy", start = offset, end = offset)
-                            .firstOrNull()?.let { annotation ->
-                                try {
-                                    uriHandler.openUri(annotation.item)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
+                            .firstOrNull()?.let {
+                                LegalConstants.openPrivacyPolicy(context)
                             }
                     }
                 )

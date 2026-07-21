@@ -7,7 +7,7 @@ import android.content.Intent
 class DailyChallengeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            DailyChallengeWorker.schedule(context)
+            NotificationHelper.scheduleDailyChallengeNotification(context)
         }
     }
 }
