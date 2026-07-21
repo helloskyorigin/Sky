@@ -1,5 +1,6 @@
 package com.skyorigin.threatshieldai
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -49,14 +50,25 @@ fun DailySafetyTipScreen(
     val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
     val bgColor = MaterialTheme.colorScheme.background
 
-    // Calculate stable today index based on system time (epoch days)
-    val todayIndex = remember {
-        val epochDays = System.currentTimeMillis() / (1000 * 60 * 60 * 24)
-        (epochDays % DailySafetyTipData.tipsExtended.size).toInt()
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    val sp = remember { context.getSharedPreferences("settings", Context.MODE_PRIVATE) }
+
+    val currentIndex = remember(todayStr) {
+        var startDateStr = sp.getString("safety_tip_start_date", null)
+        if (startDateStr == null) {
+            startDateStr = todayStr
+            sp.edit().putString("safety_tip_start_date", todayStr).apply()
+        }
+        val daysDiff = getDaysDifference(startDateStr, todayStr)
+        daysDiff % DailySafetyTipData.tipsExtended.size
     }
 
-    val currentIndex = todayIndex
     val currentTip = DailySafetyTipData.tipsExtended[currentIndex]
+
+    // Mark today's tip as opened
+    LaunchedEffect(todayStr) {
+        sp.edit().putString("last_opened_tip_date", todayStr).apply()
+    }
 
     val title = if (isHindi) currentTip.titleHi else currentTip.titleEn
     val explanation = if (isHindi) currentTip.explanationHi else currentTip.explanationEn
@@ -73,11 +85,11 @@ fun DailySafetyTipScreen(
     // Helper to format today's date elegantly
     val formattedDate = remember {
         try {
-            val locale = if (isHindi) Locale("hi", "IN") else Locale.getDefault()
+            val locale = if (isHindi) Locale("en", "IN") else Locale.getDefault()
             val sdf = SimpleDateFormat("EEEE, d MMMM", locale)
             sdf.format(Date())
         } catch (e: Exception) {
-            if (isHindi) "आज की टिप" else "Today's Tip"
+            if (isHindi) "Today's Tip" else "Today's Tip"
         }
     }
 
@@ -94,7 +106,7 @@ fun DailySafetyTipScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = if (isHindi) "दैनिक सुरक्षा टिप" else "Daily Safety Tip",
+                            text = if (isHindi) "Daily Safety Tip" else "Daily Safety Tip",
                             style = TextStyle(
                                 fontSize = 19.sp,
                                 fontWeight = FontWeight.Bold,
@@ -108,7 +120,7 @@ fun DailySafetyTipScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = if (isHindi) "पीछे जाएं" else "Go back",
+                            contentDescription = if (isHindi) "Back" else "Go back",
                             tint = textPrimary
                         )
                     }
@@ -147,11 +159,7 @@ fun DailySafetyTipScreen(
                         )
                     )
                     Text(
-                        text = if (isHindi) {
-                            "टिप #${currentIndex + 1} (${DailySafetyTipData.tipsExtended.size} में से)"
-                        } else {
-                            "Tip #${currentIndex + 1} of ${DailySafetyTipData.tipsExtended.size}"
-                        },
+                        text = if (isHindi) "Today's Safety Tip" else "Today's Safety Tip",
                         style = TextStyle(
                             fontSize = 12.sp,
                             color = PremiumColors.SubtitleGray,
@@ -161,25 +169,23 @@ fun DailySafetyTipScreen(
                 }
 
                 // Small indicator showing if this is today's current tip
-                if (currentIndex == todayIndex) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = PremiumColors.Safe.copy(alpha = 0.1f),
-                                shape = CircleShape
-                            )
-                            .border(1.dp, PremiumColors.Safe.copy(alpha = 0.2f), CircleShape)
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (isHindi) "आज की टिप" else "Today's Tip",
-                            style = TextStyle(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PremiumColors.Safe
-                            )
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = PremiumColors.Safe.copy(alpha = 0.1f),
+                            shape = CircleShape
                         )
-                    }
+                        .border(1.dp, PremiumColors.Safe.copy(alpha = 0.2f), CircleShape)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (isHindi) "Today's Tip" else "Today's Tip",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PremiumColors.Safe
+                        )
+                    )
                 }
             }
 
@@ -187,8 +193,7 @@ fun DailySafetyTipScreen(
             AnimatedContent(
                 targetState = currentTip,
                 transitionSpec = {
-                    slideInHorizontally { width -> if (currentIndex > todayIndex) width else -width } + fadeIn() togetherWith
-                    slideOutHorizontally { width -> if (currentIndex > todayIndex) -width else width } + fadeOut()
+                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                 },
                 label = "tip_transition"
             ) { targetTip ->
@@ -300,7 +305,7 @@ fun DailySafetyTipScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isHindi) "यह क्यों मायने रखता है?" else "Why This Matters",
+                                    text = if (isHindi) "Why This Matters" else "Why This Matters",
                                     style = TextStyle(
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.ExtraBold,
@@ -346,7 +351,7 @@ fun DailySafetyTipScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isHindi) "सुरक्षित रहने के कदम" else "Stay Safe Action",
+                                    text = if (isHindi) "Stay Safe Action" else "Stay Safe Action",
                                     style = TextStyle(
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.ExtraBold,
@@ -378,16 +383,16 @@ fun DailySafetyTipScreen(
                 Button(
                     onClick = {
                         val shareText = if (isHindi) {
-                            "🛡️ *खतरा शील्ड एआई - आज की सुरक्षा टिप* 🛡️\n\n*${currentTip.titleHi}*\n\n💡 *यह क्या है?*\n${currentTip.explanationHi}\n\n⚠️ *यह क्यों मायने रखता है?*\n${currentTip.whyItMattersHi}\n\n✅ *सुरक्षित कदम:*\n${currentTip.staySafeActionHi}\n\nसुरक्षित रहें, जागरूक रहें!"
+                            "🛡️ *ThreatShield AI - Daily Safety Tip* 🛡️\n\n*${currentTip.titleHi}*\n\n💡 *What is it?*\n${currentTip.explanationHi}\n\n⚠️ *Why This Matters:*\n${currentTip.whyItMattersHi}\n\n✅ *Stay Safe Action:*\n${currentTip.staySafeActionHi}\n\nStay Safe, Stay Secure!"
                         } else {
                             "🛡️ *ThreatShield AI - Daily Safety Tip* 🛡️\n\n*${currentTip.titleEn}*\n\n💡 *What is it?*\n${currentTip.explanationEn}\n\n⚠️ *Why This Matters:*\n${currentTip.whyItMattersEn}\n\n✅ *Stay Safe:* \n${currentTip.staySafeActionEn}\n\nStay Safe, Stay Secure!"
                         }
                         val intent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, if (isHindi) "सुरक्षा टिप" else "Cybersecurity Safety Tip")
+                            putExtra(Intent.EXTRA_SUBJECT, if (isHindi) "Cybersecurity Safety Tip" else "Cybersecurity Safety Tip")
                             putExtra(Intent.EXTRA_TEXT, shareText)
                         }
-                        context.startActivity(Intent.createChooser(intent, if (isHindi) "शेयर करें" else "Share Tip"))
+                        context.startActivity(Intent.createChooser(intent, if (isHindi) "Share Tip" else "Share Tip"))
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -408,7 +413,7 @@ fun DailySafetyTipScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isHindi) "टिप शेयर करें" else "Share Tip",
+                            text = if (isHindi) "Share Tip" else "Share Tip",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
@@ -418,6 +423,35 @@ fun DailySafetyTipScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+private fun getDaysDifference(startDateStr: String, endDateStr: String): Int {
+    return try {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val startDate = sdf.parse(startDateStr) ?: return 0
+        val endDate = sdf.parse(endDateStr) ?: return 0
+        
+        val calStart = Calendar.getInstance().apply {
+            time = startDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val calEnd = Calendar.getInstance().apply {
+            time = endDate
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        
+        val diffInMillis = calEnd.timeInMillis - calStart.timeInMillis
+        val days = java.util.concurrent.TimeUnit.MILLISECONDS.toDays(diffInMillis).toInt()
+        if (days < 0) 0 else days
+    } catch (e: Exception) {
+        0
     }
 }
 

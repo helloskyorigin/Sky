@@ -103,7 +103,7 @@ fun CommonScamExamplesScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = if (isHindi) "सामान्य स्कैम उदाहरण" else "Common Scams",
+                        text = if (isHindi) "Scam Examples" else "Common Scams",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
@@ -252,21 +252,21 @@ fun CommonScamExamplesScreen(
                 // 15 Specific categories
                 items(ScamExamplesData.categories) { cat ->
                     val localizedCat = when (cat) {
-                        "Phishing" -> if (isHindi) "फ़िशिंग" else "Phishing"
-                        "OTP Fraud" -> if (isHindi) "ओटीपी धोखाधड़ी" else "OTP Fraud"
-                        "UPI Scam" -> if (isHindi) "यूपीआई स्कैम" else "UPI Scam"
-                        "QR Code Scam" -> if (isHindi) "क्यूआर कोड स्कैम" else "QR Code Scam"
-                        "Fake Bank Call" -> if (isHindi) "फर्जी बैंक कॉल" else "Fake Bank Call"
-                        "Fake KYC" -> if (isHindi) "फर्जी केवाईसी" else "Fake KYC"
-                        "Fake Delivery" -> if (isHindi) "फर्जी डिलीवरी" else "Fake Delivery"
-                        "Job Scam" -> if (isHindi) "नौकरी घोटाला" else "Job Scam"
-                        "Investment Scam" -> if (isHindi) "निवेश घोटाला" else "Investment Scam"
-                        "Lottery Scam" -> if (isHindi) "लॉटरी घोटाला" else "Lottery Scam"
-                        "Tech Support Scam" -> if (isHindi) "तकनीकी सहायता घोटाला" else "Tech Support Scam"
-                        "WhatsApp Scam" -> if (isHindi) "व्हाट्सएप स्कैम" else "WhatsApp Scam"
-                        "Telegram Scam" -> if (isHindi) "टेलीग्राम स्कैम" else "Telegram Scam"
-                        "Instagram Scam" -> if (isHindi) "इंस्टाग्राम स्कैम" else "Instagram Scam"
-                        "Fake Customer Care" -> if (isHindi) "फर्जी कस्टमर केयर" else "Fake Customer Care"
+                        "Phishing" -> "Phishing"
+                        "OTP Fraud" -> "OTP Fraud"
+                        "UPI Scam" -> "UPI Scam"
+                        "QR Code Scam" -> "QR Code Scam"
+                        "Fake Bank Call" -> "Fake Bank Call"
+                        "Fake KYC" -> "Fake KYC"
+                        "Fake Delivery" -> "Fake Delivery"
+                        "Job Scam" -> "Job Scam"
+                        "Investment Scam" -> "Investment Scam"
+                        "Lottery Scam" -> "Lottery Scam"
+                        "Tech Support Scam" -> "Tech Support"
+                        "WhatsApp Scam" -> "WhatsApp Scam"
+                        "Telegram Scam" -> "Telegram Scam"
+                        "Instagram Scam" -> "Instagram Scam"
+                        "Fake Customer Care" -> "Fake Customer Care"
                         else -> cat
                     }
 
@@ -301,12 +301,12 @@ fun CommonScamExamplesScreen(
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
-                            text = if (isHindi) "कोई स्कैम नहीं मिला" else "No scam examples found",
+                            text = if (isHindi) "No Scam Examples Found" else "No scam examples found",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (isDark) Color.White else PremiumColors.TextDark
                         )
                         Text(
-                            text = if (isHindi) "कृपया कोई अन्य खोज शब्द या श्रेणी चुनें।" else "Try adjusting your search filters or clear your text query.",
+                            text = if (isHindi) "Kuch aur search karke try karein." else "Try adjusting your search filters or clear your text query.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (isDark) Color(0xFF64748B) else PremiumColors.SubtitleGray,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -435,27 +435,27 @@ fun ScamItemCard(
     }
 
     val difficultyText = when (scam.difficulty) {
-        "Easy" -> if (isHindi) "आसान पहचान" else "Easy to Spot"
-        "Medium" -> if (isHindi) "मध्यम खतरा" else "Medium Risk"
-        else -> if (isHindi) "कठिन / गंभीर" else "Sophisticated / Hard"
+        "Easy" -> if (isHindi) "Easy to Spot" else "Easy to Spot"
+        "Medium" -> if (isHindi) "Medium Risk" else "Medium Risk"
+        else -> if (isHindi) "Sophisticated" else "Sophisticated / Hard"
     }
 
     val localizedCategoryName = when (scam.category) {
-        "Phishing" -> if (isHindi) "फ़िशिंग" else "Phishing"
-        "OTP Fraud" -> if (isHindi) "ओटीपी धोखाधड़ी" else "OTP Fraud"
-        "UPI Scam" -> if (isHindi) "यूपीआई स्कैम" else "UPI Scam"
-        "QR Code Scam" -> if (isHindi) "क्यूआर कोड स्कैम" else "QR Code Scam"
-        "Fake Bank Call" -> if (isHindi) "फर्जी बैंक कॉल" else "Fake Bank Call"
-        "Fake KYC" -> if (isHindi) "फर्जी केवाईसी" else "Fake KYC"
-        "Fake Delivery" -> if (isHindi) "फर्जी डिलीवरी" else "Fake Delivery"
-        "Job Scam" -> if (isHindi) "नौकरी घोटाला" else "Job Scam"
-        "Investment Scam" -> if (isHindi) "निवेश घोटाला" else "Investment Scam"
-        "Lottery Scam" -> if (isHindi) "लॉटरी घोटाला" else "Lottery Scam"
-        "Tech Support Scam" -> if (isHindi) "तकनीकी सहायता" else "Tech Support"
-        "WhatsApp Scam" -> if (isHindi) "व्हाट्सएप स्कैम" else "WhatsApp Scam"
-        "Telegram Scam" -> if (isHindi) "टेलीग्राम स्कैम" else "Telegram Scam"
-        "Instagram Scam" -> if (isHindi) "इंस्टाग्राम स्कैम" else "Instagram Scam"
-        "Fake Customer Care" -> if (isHindi) "फर्जी कस्टमर केयर" else "Fake Customer Care"
+        "Phishing" -> "Phishing"
+        "OTP Fraud" -> "OTP Fraud"
+        "UPI Scam" -> "UPI Scam"
+        "QR Code Scam" -> "QR Code Scam"
+        "Fake Bank Call" -> "Fake Bank Call"
+        "Fake KYC" -> "Fake KYC"
+        "Fake Delivery" -> "Fake Delivery"
+        "Job Scam" -> "Job Scam"
+        "Investment Scam" -> "Investment Scam"
+        "Lottery Scam" -> "Lottery Scam"
+        "Tech Support Scam" -> "Tech Support"
+        "WhatsApp Scam" -> "WhatsApp Scam"
+        "Telegram Scam" -> "Telegram Scam"
+        "Instagram Scam" -> "Instagram Scam"
+        "Fake Customer Care" -> "Fake Customer Care"
         else -> scam.category
     }
 
@@ -562,7 +562,7 @@ fun ScamItemCard(
 
                     // 1. Scenario Sub-Card (Pretends to show the real scam text)
                     Text(
-                        text = if (isHindi) "घोटाला संदेश / परिदृश्य:" else "SCAM SCENARIO / MESSAGE:",
+                        text = if (isHindi) "Scam Scenario / Message:" else "SCAM SCENARIO / MESSAGE:",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.sp
@@ -726,7 +726,7 @@ fun ScamItemCard(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = if (isHindi) "सुरक्षित कार्रवाई / प्रतिक्रिया:" else "HOW TO STAY SAFE:",
+                                text = if (isHindi) "Stay Safe Tips:" else "HOW TO STAY SAFE:",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     letterSpacing = 0.5.sp
@@ -812,9 +812,9 @@ fun ScamItemCard(
                 ) {
                     Text(
                         text = if (isExpanded) {
-                            if (isHindi) "कम विवरण दिखाएं" else "Show Less"
+                            if (isHindi) "Show Less" else "Show Less"
                         } else {
-                            if (isHindi) "पूरा विवरण देखें" else "Read Details"
+                            if (isHindi) "Read Details" else "Read Details"
                         },
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Bold,
@@ -839,21 +839,21 @@ private fun shareScamDetails(context: android.content.Context, scam: ScamExample
     val title = if (isHindi) scam.titleHi else scam.titleEn
     val category = if (isHindi) {
         when (scam.category) {
-            "Phishing" -> "फ़िशिंग"
-            "OTP Fraud" -> "ओटीपी धोखाधड़ी"
-            "UPI Scam" -> "यूपीआई स्कैम"
-            "QR Code Scam" -> "क्यूआर कोड स्कैम"
-            "Fake Bank Call" -> "फर्जी बैंक कॉल"
-            "Fake KYC" -> "फर्जी केवाईसी"
-            "Fake Delivery" -> "फर्जी डिलीवरी"
-            "Job Scam" -> "नौकरी घोटाला"
-            "Investment Scam" -> "निवेश घोटाला"
-            "Lottery Scam" -> "लॉटरी घोटाला"
-            "Tech Support Scam" -> "तकनीकी सहायता घोटाला"
-            "WhatsApp Scam" -> "व्हाट्सएप स्कैम"
-            "Telegram Scam" -> "टेलीग्राम स्कैम"
-            "Instagram Scam" -> "इंस्टाग्राम स्कैम"
-            "Fake Customer Care" -> "फर्जी कस्टमर केयर"
+            "Phishing" -> "Phishing"
+            "OTP Fraud" -> "OTP Fraud"
+            "UPI Scam" -> "UPI Scam"
+            "QR Code Scam" -> "QR Code Scam"
+            "Fake Bank Call" -> "Fake Bank Call"
+            "Fake KYC" -> "Fake KYC"
+            "Fake Delivery" -> "Fake Delivery"
+            "Job Scam" -> "Job Scam"
+            "Investment Scam" -> "Investment Scam"
+            "Lottery Scam" -> "Lottery Scam"
+            "Tech Support Scam" -> "Tech Support"
+            "WhatsApp Scam" -> "WhatsApp Scam"
+            "Telegram Scam" -> "Telegram Scam"
+            "Instagram Scam" -> "Instagram Scam"
+            "Fake Customer Care" -> "Fake Customer Care"
             else -> scam.category
         }
     } else scam.category
@@ -867,19 +867,19 @@ private fun shareScamDetails(context: android.content.Context, scam: ScamExample
         scam.redFlagsEn.joinToString("\n") { "🚩 $it" }
     }
 
-    val headerText = if (isHindi) "⚠️ थ्रेटशील्ड एआई - सामान्य स्कैम अलर्ट! ⚠️" else "⚠️ ThreatShield AI - Common Scam Alert! ⚠️"
-    val categoryLabel = if (isHindi) "श्रेणी" else "Category"
-    val diffLabel = if (isHindi) "पहचान स्तर" else "Difficulty Level"
-    val scenarioLabel = if (isHindi) "स्कैम संदेश / परिदृश्य" else "Scam Message / Scenario"
-    val dangerLabel = if (isHindi) "यह खतरनाक क्यों है" else "Why it is Dangerous"
-    val flagsLabel = if (isHindi) "चेतावनी के प्रमुख संकेत" else "Critical Red Flags"
-    val safetyLabel = if (isHindi) "सुरक्षित रहने के लिए निर्देश" else "How to Stay Safe"
-    val footerText = if (isHindi) "सुरक्षित रहें, थ्रेटशील्ड एआई डाउनलोड करें।" else "Stay safe! Download ThreatShield AI to analyze scams in real-time."
+    val headerText = if (isHindi) "⚠️ ThreatShield AI - Common Scam Alert! ⚠️" else "⚠️ ThreatShield AI - Common Scam Alert! ⚠️"
+    val categoryLabel = if (isHindi) "Category" else "Category"
+    val diffLabel = if (isHindi) "Difficulty Level" else "Difficulty Level"
+    val scenarioLabel = if (isHindi) "Scam Message / Scenario" else "Scam Message / Scenario"
+    val dangerLabel = if (isHindi) "Why it is Dangerous" else "Why it is Dangerous"
+    val flagsLabel = if (isHindi) "Warning Signs" else "Critical Red Flags"
+    val safetyLabel = if (isHindi) "Stay Safe Tips" else "How to Stay Safe"
+    val footerText = if (isHindi) "Stay Safe! ThreatShield AI download karein." else "Stay safe! Download ThreatShield AI to analyze scams in real-time."
 
     val difficultyText = when (scam.difficulty) {
-        "Easy" -> if (isHindi) "आसान पहचान" else "Easy to Spot"
-        "Medium" -> if (isHindi) "मध्यम खतरा" else "Medium Risk"
-        else -> if (isHindi) "कठिन / गंभीर" else "Hard / Sophisticated"
+        "Easy" -> if (isHindi) "Easy to Spot" else "Easy to Spot"
+        "Medium" -> if (isHindi) "Medium Risk" else "Medium Risk"
+        else -> if (isHindi) "Sophisticated" else "Hard / Sophisticated"
     }
 
     val shareContent = """
@@ -915,5 +915,5 @@ private fun shareScamDetails(context: android.content.Context, scam: ScamExample
         putExtra(Intent.EXTRA_TEXT, shareContent)
     }
 
-    context.startActivity(Intent.createChooser(intent, if (isHindi) "इसके माध्यम से साझा करें" else "Share via"))
+    context.startActivity(Intent.createChooser(intent, if (isHindi) "Share via" else "Share via"))
 }

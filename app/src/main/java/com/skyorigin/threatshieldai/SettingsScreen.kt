@@ -72,7 +72,7 @@ fun SettingsScreen(
                         androidx.compose.foundation.Image(
                             painter = painterResource(id = R.drawable.ic_official_logo),
                             contentDescription = "ThreatShield AI Logo",
-                            modifier = Modifier.height(32.dp),
+                            modifier = Modifier.height(40.dp),
                             contentScale = ContentScale.Fit
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -114,7 +114,7 @@ fun SettingsScreen(
                     painter = painterResource(id = R.drawable.ic_official_logo),
                     contentDescription = "ThreatShield AI Logo",
                     modifier = Modifier
-                        .height(48.dp)
+                        .height(100.dp)
                         .drawBehind {
                             if (isDark) {
                                 val glowRadius = size.width * 0.7f

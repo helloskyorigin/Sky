@@ -25,6 +25,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.skyorigin.threatshieldai.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +39,7 @@ fun QuickQuizScreen(
     val isDark = LocalIsDark.current
     val isHindi = viewModel.currentLanguage == "hi"
     val context = LocalContext.current
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
 
     // Active gameplay variables
     var activeChallengeQuestion by remember { mutableStateOf<QuizQuestion?>(null) }
@@ -50,7 +54,7 @@ fun QuickQuizScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isHindi) "त्वरित चुनौती" else "Quick Challenge",
+                        text = if (isHindi) "Quick Challenge" else "Quick Challenge",
                         style = PremiumTypography.SectionTitle.copy(fontWeight = FontWeight.Bold),
                         color = if (isDark) Color.White else PremiumColors.TextDark
                     )
@@ -115,14 +119,14 @@ fun QuickQuizScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = if (isHindi) "आपकी प्रगति" else "Your Progress",
+                                        text = if (isHindi) "Aapki Security Progress" else "Your Progress",
                                         style = PremiumTypography.Caption,
                                         color = Color.White.copy(alpha = 0.8f)
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    val completedCount = viewModel.quickChallengeUnlockedCount - 1
+                                    val completedCount = viewModel.quickChallengeCompletedId
                                     Text(
-                                        text = if (isHindi) "${completedCount} / 50 चुनौतियां पूरी की गईं" else "${completedCount} of 50 Challenges Cleared",
+                                        text = if (isHindi) "Total Complete: ${completedCount} / 50" else "${completedCount} of 50 Challenges Cleared",
                                         style = PremiumTypography.SectionTitle.copy(fontWeight = FontWeight.Bold),
                                         color = Color.White
                                     )
@@ -148,11 +152,11 @@ fun QuickQuizScreen(
                         }
 
                         items(QuizData.questions.size) { index ->
-                            val question = QuizData.questions[index]
-                            val challengeId = question.id
-                            val isCompleted = challengeId < viewModel.quickChallengeUnlockedCount
-                            val isUnlocked = challengeId == viewModel.quickChallengeUnlockedCount
-                            val isLocked = challengeId > viewModel.quickChallengeUnlockedCount
+                                    val question = QuizData.questions[index]
+                                    val challengeId = question.id
+                                    val isCompleted = challengeId <= viewModel.quickChallengeCompletedId
+                                    val isUnlocked = challengeId == viewModel.quickChallengeCompletedId + 1 && viewModel.quickChallengeLastCompletedDate != todayStr
+                                    val isLocked = challengeId > viewModel.quickChallengeCompletedId + 1 || (challengeId == viewModel.quickChallengeCompletedId + 1 && viewModel.quickChallengeLastCompletedDate == todayStr)
 
                             val cardBgColor = when {
                                 isUnlocked -> if (isDark) Color(0xFF1E293B) else Color.White
@@ -225,25 +229,35 @@ fun QuickQuizScreen(
 
                                 // Challenge Title / Topic
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (isHindi) "चुनौती #${challengeId}" else "Challenge #${challengeId}",
-                                        style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.Bold),
-                                        color = if (isLocked) {
-                                            if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-                                        } else {
-                                            if (isDark) Color.White else PremiumColors.TextDark
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = getLocalizedTopic(question.topic, isHindi),
-                                        style = PremiumTypography.Caption,
-                                        color = if (isLocked) {
-                                            if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)
-                                        } else {
-                                            if (isDark) Color(0xFF94A3B8) else PremiumColors.SubtitleGray
-                                        }
-                                    )
+                                    if (isLocked) {
+                                        Text(
+                                            text = if (isHindi) "🔒 Locked" else "🔒 Locked",
+                                            style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = if (challengeId == viewModel.quickChallengeCompletedId + 1 && viewModel.quickChallengeLastCompletedDate == todayStr) {
+                                                if (isHindi) "Available Tomorrow" else "Available Tomorrow"
+                                            } else {
+                                                getLocalizedTopic(question.topic, isHindi)
+                                            },
+                                            style = PremiumTypography.Caption,
+                                            color = if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = if (isHindi) "Challenge #${challengeId}" else "Challenge #${challengeId}",
+                                            style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isDark) Color.White else PremiumColors.TextDark
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = getLocalizedTopic(question.topic, isHindi),
+                                            style = PremiumTypography.Caption,
+                                            color = if (isDark) Color(0xFF94A3B8) else PremiumColors.SubtitleGray
+                                        )
+                                    }
                                 }
 
                                 // Right-side state badge
@@ -254,14 +268,14 @@ fun QuickQuizScreen(
                                             .padding(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
                                         Text(
-                                            text = if (isHindi) "शुरू करें" else "START",
+                                            text = if (isHindi) "Start" else "START",
                                             style = PremiumTypography.Caption.copy(fontWeight = FontWeight.Bold),
                                             color = Color.White
                                         )
                                     }
                                 } else if (isCompleted) {
                                     Text(
-                                        text = if (isHindi) "पुनः खेलें" else "Replay",
+                                        text = if (isHindi) "Replay" else "Replay",
                                         style = PremiumTypography.Caption.copy(fontWeight = FontWeight.SemiBold),
                                         color = PremiumColors.PrimaryAccent
                                     )
@@ -307,7 +321,7 @@ fun QuickQuizScreen(
                                 }
 
                                 Text(
-                                    text = if (isHindi) "चुनौती #${question.id} / 50" else "Challenge #${question.id} of 50",
+                                    text = if (isHindi) "Challenge #${question.id}" else "Challenge #${question.id}",
                                     style = PremiumTypography.Caption.copy(fontWeight = FontWeight.Bold),
                                     color = if (isDark) Color(0xFF94A3B8) else PremiumColors.SubtitleGray
                                 )
@@ -446,87 +460,122 @@ fun QuickQuizScreen(
                                 }
                             }
 
-                            // Explanation Block
-                            AnimatedVisibility(
-                                visible = isAnswerSubmitted,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut()
-                            ) {
-                                val isUserCorrect = selectedOptionIndex == question.correctAnswerIndex
-                                val feedbackText = if (isUserCorrect) {
-                                    if (isHindi) "✅ बिल्कुल सही उत्तर!" else "✅ Correct Answer!"
-                                } else {
-                                    if (isHindi) "❌ गलत उत्तर!" else "❌ Incorrect!"
-                                }
-                                val feedbackColor = if (isUserCorrect) PremiumColors.Safe else PremiumColors.Danger
+                            val isUserCorrect = selectedOptionIndex == question.correctAnswerIndex
 
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .border(
-                                            width = 1.5.dp,
-                                            color = feedbackColor.copy(alpha = 0.3f),
-                                            shape = PremiumRadius.card
-                                        )
-                                        .clip(PremiumRadius.card)
-                                        .background(feedbackColor.copy(alpha = if (isDark) 0.08f else 0.03f))
-                                        .padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                            if (isAnswerSubmitted && isUserCorrect) {
+                                // Compact Success Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = PremiumRadius.card,
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isDark) Color(0xFF1E293B) else Color.White
+                                    ),
+                                    border = BorderStroke(2.dp, PremiumColors.Safe)
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
                                         Icon(
-                                            imageVector = if (isUserCorrect) Icons.Rounded.Verified else Icons.Rounded.Error,
+                                            imageVector = Icons.Rounded.CheckCircle,
                                             contentDescription = null,
-                                            tint = feedbackColor,
-                                            modifier = Modifier.size(24.dp)
+                                            tint = PremiumColors.Safe,
+                                            modifier = Modifier.size(48.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(10.dp))
                                         Text(
-                                            text = feedbackText,
+                                            text = if (isHindi) "✅ Challenge Completed" else "✅ Challenge Completed",
                                             style = PremiumTypography.SectionTitle.copy(fontWeight = FontWeight.Bold),
-                                            color = feedbackColor
+                                            color = if (isDark) Color.White else PremiumColors.TextDark,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            text = if (isHindi) "Great job!" else "Great job!",
+                                            style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.SemiBold),
+                                            color = PremiumColors.Safe,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            text = if (isHindi) "Aapki next Quick Challenge kal unlock hogi." else "Your next Quick Challenge will unlock tomorrow.",
+                                            style = PremiumTypography.Body,
+                                            color = if (isDark) Color(0xFFCBD5E1) else PremiumColors.SubtitleGray,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        PremiumButton(
+                                            onClick = {
+                                                // Save progress
+                                                viewModel.completeQuickChallenge(question.id, todayStr)
+                                                // Go back to hub
+                                                playingMode = false
+                                                activeChallengeQuestion = null
+                                                onNavigateBack()
+                                            },
+                                            text = if (isHindi) "Back to Learn Hub" else "Back to Learn Hub",
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
-
-                                    PremiumDivider()
-
-                                    Text(
-                                        text = if (isHindi) "महत्वपूर्ण सुरक्षा पाठ:" else "Safety Explanation:",
-                                        style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.Bold),
-                                        color = if (isDark) Color.White else PremiumColors.TextDark
-                                    )
-
-                                    Text(
-                                        text = if (isHindi) question.explanationHi else question.explanationEn,
-                                        style = PremiumTypography.Body,
-                                        color = if (isDark) Color(0xFFCBD5E1) else PremiumColors.SubtitleGray,
-                                        lineHeight = 22.sp
-                                    )
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Submit / Continue Button
-                            if (!isAnswerSubmitted) {
-                                PremiumButton(
-                                    onClick = { isAnswerSubmitted = true },
-                                    enabled = selectedOptionIndex != null,
-                                    text = if (isHindi) "उत्तर दर्ज करें" else "Submit Answer",
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                             } else {
-                                val isUserCorrect = selectedOptionIndex == question.correctAnswerIndex
-                                if (isUserCorrect) {
+                                // Standard incorrect / pending answer submission view
+                                AnimatedVisibility(
+                                    visible = isAnswerSubmitted && !isUserCorrect,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 1.5.dp,
+                                                color = PremiumColors.Danger.copy(alpha = 0.3f),
+                                                shape = PremiumRadius.card
+                                            )
+                                            .clip(PremiumRadius.card)
+                                            .background(PremiumColors.Danger.copy(alpha = if (isDark) 0.08f else 0.03f))
+                                            .padding(20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Error,
+                                                contentDescription = null,
+                                                tint = PremiumColors.Danger,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = if (isHindi) "❌ Incorrect!" else "❌ Incorrect!",
+                                                style = PremiumTypography.SectionTitle.copy(fontWeight = FontWeight.Bold),
+                                                color = PremiumColors.Danger
+                                            )
+                                        }
+
+                                        PremiumDivider()
+
+                                        Text(
+                                            text = if (isHindi) "Expert Analysis:" else "Safety Explanation:",
+                                            style = PremiumTypography.CardTitle.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isDark) Color.White else PremiumColors.TextDark
+                                        )
+
+                                        Text(
+                                            text = if (isHindi) question.explanationHi else question.explanationEn,
+                                            style = PremiumTypography.Body,
+                                            color = if (isDark) Color(0xFFCBD5E1) else PremiumColors.SubtitleGray,
+                                            lineHeight = 22.sp
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Submit / Try Again Button
+                                if (!isAnswerSubmitted) {
                                     PremiumButton(
-                                        onClick = {
-                                            // Unlock the next level
-                                            viewModel.unlockNextQuickChallenge(question.id)
-                                            // Return back to list map
-                                            playingMode = false
-                                            activeChallengeQuestion = null
-                                        },
-                                        text = if (isHindi) "चुनौती पूरी करें" else "Complete Challenge",
+                                        onClick = { isAnswerSubmitted = true },
+                                        enabled = selectedOptionIndex != null,
+                                        text = if (isHindi) "Submit Answer" else "Submit Answer",
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 } else {
@@ -540,7 +589,7 @@ fun QuickQuizScreen(
                                                 isAnswerSubmitted = false
                                             },
                                             style = PremiumButtonStyle.Outlined,
-                                            text = if (isHindi) "पुनः प्रयास करें" else "Try Again",
+                                            text = if (isHindi) "Try Again" else "Try Again",
                                             modifier = Modifier.weight(1f)
                                         )
                                         PremiumButton(
@@ -548,7 +597,7 @@ fun QuickQuizScreen(
                                                 playingMode = false
                                                 activeChallengeQuestion = null
                                             },
-                                            text = if (isHindi) "वापस जाएं" else "Back to Map",
+                                            text = if (isHindi) "Back to Learn Hub" else "Back to Map",
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -565,16 +614,16 @@ fun QuickQuizScreen(
 fun getLocalizedTopic(topic: String, isHindi: Boolean): String {
     if (!isHindi) return topic
     return when (topic) {
-        "Phishing" -> "फ़िशिंग (Phishing)"
-        "OTP Fraud" -> "ओटीपी धोखाधड़ी (OTP Fraud)"
-        "UPI Scam" -> "यूपीआई धोखाधड़ी (UPI Scam)"
-        "QR Scam" -> "क्यूआर स्कैन घोटाला (QR Scam)"
-        "Fake Banking" -> "फर्जी बैंकिंग (Fake Banking)"
-        "Social Engineering" -> "सोशल इंजीनियरिंग (Social Engineering)"
-        "Password Safety" -> "पासवर्ड सुरक्षा (Password Safety)"
-        "Malware" -> "मैलवेयर (Malware)"
-        "Online Shopping" -> "ऑनलाइन शॉपिंग सुरक्षा (Online Shopping)"
-        "General Cyber Safety" -> "सामान्य साइबर सुरक्षा (Cyber Safety)"
+        "Phishing" -> "Phishing"
+        "OTP Fraud" -> "OTP Fraud"
+        "UPI Scam" -> "UPI Scam"
+        "QR Scam" -> "QR Scam"
+        "Fake Banking" -> "Fake Banking"
+        "Social Engineering" -> "Social Engineering"
+        "Password Safety" -> "Password Safety"
+        "Malware" -> "Malware"
+        "Online Shopping" -> "Online Shopping Safety"
+        "General Cyber Safety" -> "Cyber Safety"
         else -> topic
     }
 }

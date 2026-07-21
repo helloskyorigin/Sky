@@ -2548,9 +2548,9 @@ fun DailyChallengeCard(
 
             Text(
                 text = if (isCompleted) {
-                    if (isHindi) "✅ चैलेंज पूरा हुआ!" else "✅ Challenge Completed"
+                    if (isHindi) "✅ Challenge Completed" else "✅ Challenge Completed"
                 } else {
-                    if (isHindi) "क्या आप आज के घोटाले की पहचान कर सकते हैं?" else "Can you identify today's scam?"
+                    if (isHindi) "Kya aap aaj ke scam ko identify kar sakte hain?" else "Can you identify today's scam?"
                 },
                 style = TextStyle(
                     fontSize = 14.5.sp,
@@ -2563,9 +2563,9 @@ fun DailyChallengeCard(
 
             Text(
                 text = if (isCompleted) {
-                    if (isHindi) "नया चैलेंज अनलॉक होने के लिए कल वापस आएं।" else "Come back tomorrow for a new challenge."
+                    if (isHindi) "Naya challenge unlock hone ke liye kal waapas aayein." else "Come back tomorrow for a new challenge."
                 } else {
-                    if (isHindi) "एक त्वरित चुनौती में अपनी घोटाले की जागरूकता का परीक्षण करें।" else "Test your scam awareness in one quick challenge."
+                    if (isHindi) "Ek Quick Challenge mein apni scam awareness ko test karein." else "Test your scam awareness in one quick challenge."
                 },
                 style = TextStyle(
                     fontSize = 12.5.sp,
@@ -2603,9 +2603,9 @@ fun DailyChallengeCard(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (isCompleted) {
-                            if (isHindi) "परिणाम देखें" else "See Result"
+                            if (isHindi) "Result Dekhein" else "See Result"
                         } else {
-                            if (isHindi) "चैलेंज शुरू करें" else "Start Challenge"
+                            if (isHindi) "Challenge Start Karein" else "Start Challenge"
                         },
                         style = TextStyle(
                             fontSize = 13.5.sp,

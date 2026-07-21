@@ -198,6 +198,19 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
     
     // Quick Challenge (formerly Quick Quiz) Unlocked count (1 to 50)
     var quickChallengeUnlockedCount by mutableStateOf(prefs.getInt("quick_challenge_unlocked_count", 1))
+    var quickChallengeCompletedId by mutableStateOf(prefs.getInt("quick_challenge_completed_id", 0))
+    var quickChallengeLastCompletedDate by mutableStateOf(prefs.getString("quick_challenge_last_completed_date", ""))
+
+    fun completeQuickChallenge(id: Int, todayStr: String) {
+        if (id == quickChallengeCompletedId + 1) {
+            quickChallengeCompletedId = id
+            quickChallengeLastCompletedDate = todayStr
+            prefs.edit()
+                .putInt("quick_challenge_completed_id", id)
+                .putString("quick_challenge_last_completed_date", todayStr)
+                .apply()
+        }
+    }
 
     fun unlockNextQuickChallenge(id: Int) {
         if (id == quickChallengeUnlockedCount && id < 50) {

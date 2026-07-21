@@ -53,7 +53,7 @@ fun ScamAcademyDetailScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(if (isHindi) "विवरण" else "Detail") },
+                    title = { Text(if (isHindi) "Detail" else "Detail") },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
@@ -69,7 +69,7 @@ fun ScamAcademyDetailScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text(if (isHindi) "विषय नहीं मिला" else "Category not found")
+                Text(if (isHindi) "Category not found" else "Category not found")
             }
         }
         return
@@ -101,7 +101,7 @@ fun ScamAcademyDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = if (isHindi) "पीछे जाएं" else "Go back",
+                            contentDescription = if (isHindi) "Back" else "Go back",
                             tint = textPrimary
                         )
                     }
@@ -194,7 +194,7 @@ fun ScamAcademyDetailScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = if (isHindi) "सुरक्षा निर्देशिका" else "Security Threat Intel",
+                        text = if (isHindi) "Threat Intel" else "Security Threat Intel",
                         style = TextStyle(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -208,7 +208,7 @@ fun ScamAcademyDetailScreen(
 
             // 1. What is it?
             DetailSection(
-                title = if (isHindi) "यह क्या है?" else "What is it?",
+                title = if (isHindi) "What is it?" else "What is it?",
                 icon = Icons.Rounded.Info,
                 color = themeColor
             ) {
@@ -226,7 +226,7 @@ fun ScamAcademyDetailScreen(
 
             // 2. How does it work?
             DetailSection(
-                title = if (isHindi) "यह कैसे काम करता है?" else "How does it work?",
+                title = if (isHindi) "How does it work?" else "How does it work?",
                 icon = Icons.Rounded.Settings,
                 color = themeColor
             ) {
@@ -273,7 +273,7 @@ fun ScamAcademyDetailScreen(
 
             // 3. Common Warning Signs (Red Flags)
             DetailSection(
-                title = if (isHindi) "सामान्य चेतावनी संकेत (Red Flags)" else "Common Warning Signs",
+                title = if (isHindi) "Warning Signs" else "Common Warning Signs",
                 icon = Icons.Rounded.Warning,
                 color = PremiumColors.Danger
             ) {
@@ -309,7 +309,7 @@ fun ScamAcademyDetailScreen(
 
             // 4. How to Stay Safe
             DetailSection(
-                title = if (isHindi) "सुरक्षित रहने के तरीके" else "How to Stay Safe",
+                title = if (isHindi) "Stay Safe Tips" else "How to Stay Safe",
                 icon = Icons.Rounded.Security,
                 color = Color(0xFF10B981) // safe green
             ) {
@@ -373,7 +373,7 @@ fun ScamAcademyDetailScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isHindi) "त्वरित सारांश" else "Quick Summary",
+                            text = if (isHindi) "Quick Summary" else "Quick Summary",
                             style = TextStyle(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
@@ -398,7 +398,7 @@ fun ScamAcademyDetailScreen(
             // Close button at bottom
             PremiumButton(
                 onClick = onBack,
-                text = if (isHindi) "पूरा हुआ" else "Got It",
+                text = if (isHindi) "Got It" else "Got It",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp)

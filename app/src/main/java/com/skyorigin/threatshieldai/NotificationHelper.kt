@@ -82,8 +82,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = "💡 Today's Safety Tip is ready!"
-        val body = "Stay protected with today's essential security recommendation."
+        val title = "Daily Safety Tip Ready"
+        val body = "Learn one new cybersecurity habit in less than a minute."
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_shield_notif)
@@ -114,8 +114,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = "🧠 Your Quick Challenge is ready!"
-        val body = "Test your cybersecurity knowledge with the next unlocked level."
+        val title = "Today's Quick Challenge is Ready"
+        val body = "Complete today's cybersecurity challenge and continue your learning streak."
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_shield_notif)

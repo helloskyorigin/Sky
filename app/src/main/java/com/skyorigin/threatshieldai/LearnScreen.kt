@@ -69,7 +69,7 @@ fun LearnScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = if (isHindi) "स्कैम पाठशाला" else "Learn Hub",
+                            text = if (isHindi) "Learn Hub" else "Learn Hub",
                             style = TextStyle(
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -83,7 +83,7 @@ fun LearnScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = if (isHindi) "पीछे जाएं" else "Go back",
+                            contentDescription = if (isHindi) "Back" else "Go back",
                             tint = textPrimary
                         )
                     }
@@ -125,7 +125,7 @@ fun LearnScreen(
             ) {
                 Column {
                     Text(
-                        text = if (isHindi) "सुरक्षित रहने के लिए सीखें" else "Knowledge is Your Best Shield",
+                        text = if (isHindi) "Knowledge is Your Best Shield" else "Knowledge is Your Best Shield",
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -135,7 +135,7 @@ fun LearnScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isHindi) {
-                            "नवीनतम घोटालों, तकनीकों और व्यावहारिक डिजिटल सुरक्षा सुझावों के साथ खुद को अपडेट रखें।"
+                            "Latest Scams, Techniques aur practical digital safety tips ke saath khud ko update rakhein."
                         } else {
                             "Stay ahead of fraudsters. Equip yourself with real-world scam indicators, vocabulary, and interactive quizzes."
                         },
@@ -150,8 +150,8 @@ fun LearnScreen(
 
             // 1. Today's Scam Challenge
             LearnCard(
-                title = if (isHindi) "आज का स्कैम चैलेंज" else "Today's Scam Challenge",
-                description = if (isHindi) "वास्तविक दुनिया के घोटालों को पहचानने की अपनी क्षमता का परीक्षण करें।" else "Test your ability to identify real-world scams.",
+                title = if (isHindi) "Aaj ka Scam Challenge" else "Today's Scam Challenge",
+                description = if (isHindi) "Real-world scams ko identify karne ki apni ability ko test karein." else "Test your ability to identify real-world scams.",
                 icon = Icons.Rounded.EmojiEvents,
                 iconColor = PremiumColors.PrimaryAccent,
                 onClick = onNavigateToChallenge
@@ -159,8 +159,8 @@ fun LearnScreen(
 
             // 2. Scam Academy
             LearnCard(
-                title = if (isHindi) "स्कैम एकेडमी" else "Scam Academy",
-                description = if (isHindi) "आम घोटालों के बारे में जानें और सुरक्षित रहने के तरीके सीखें।" else "Learn about common scams and how to stay protected.",
+                title = if (isHindi) "Scam Academy" else "Scam Academy",
+                description = if (isHindi) "Common Scams ke baare mein jaanein aur Stay Safe Tips seekhein." else "Learn about common scams and how to stay protected.",
                 icon = Icons.Rounded.Class,
                 iconColor = Color(0xFF8B5CF6),
                 onClick = onNavigateToAcademy
@@ -168,8 +168,8 @@ fun LearnScreen(
 
             // 3. Daily Safety Tip
             LearnCard(
-                title = if (isHindi) "दैनिक सुरक्षा टिप" else "Daily Safety Tip",
-                description = if (isHindi) "हर दिन एक व्यावहारिक साइबर सुरक्षा टिप।" else "One practical cybersecurity tip every day.",
+                title = if (isHindi) "Daily Safety Tip" else "Daily Safety Tip",
+                description = if (isHindi) "Har din ek practical cybersecurity tip." else "One practical cybersecurity tip every day.",
                 icon = Icons.Rounded.Lightbulb,
                 iconColor = Color(0xFFEAB308),
                 onClick = onNavigateToDailyTip
@@ -177,8 +177,8 @@ fun LearnScreen(
 
             // 4. Quick Challenge
             LearnCard(
-                title = if (isHindi) "त्वरित चुनौती" else "Quick Challenge",
-                description = if (isHindi) "क्रमिक सुरक्षा स्तरों के साथ अपने ज्ञान का परीक्षण करें।" else "Test your knowledge with sequential security levels.",
+                title = if (isHindi) "Quick Challenge" else "Quick Challenge",
+                description = if (isHindi) "Sequential security levels ke saath apna knowledge test karein." else "Test your knowledge with sequential security levels.",
                 icon = Icons.Rounded.Quiz,
                 iconColor = Color(0xFF10B981),
                 onClick = onNavigateToQuiz
@@ -186,8 +186,8 @@ fun LearnScreen(
 
             // 5. Common Scam Examples
             LearnCard(
-                title = if (isHindi) "सामान्य स्कैम उदाहरण" else "Common Scam Examples",
-                description = if (isHindi) "सामान्य घोटालों और चेतावनी संकेतों के उदाहरणों का पता लगाएं।" else "Explore examples of common scams and warning signs.",
+                title = if (isHindi) "Scam Examples" else "Common Scam Examples",
+                description = if (isHindi) "Common scams aur warning signs ke examples ko explore karein." else "Explore examples of common scams and warning signs.",
                 icon = Icons.Rounded.Warning,
                 iconColor = PremiumColors.Danger,
                 onClick = onNavigateToCommonScams
@@ -195,8 +195,8 @@ fun LearnScreen(
 
             // 6. Cyber Dictionary
             LearnCard(
-                title = if (isHindi) "साइबर शब्दकोश" else "Cyber Dictionary",
-                description = if (isHindi) "महत्वपूर्ण साइबर सुरक्षा शब्दों को समझें।" else "Understand important cybersecurity terms.",
+                title = if (isHindi) "Cyber Dictionary" else "Cyber Dictionary",
+                description = if (isHindi) "Important cybersecurity terms ko simple language mein samjhein." else "Understand important cybersecurity terms.",
                 icon = Icons.Rounded.MenuBook,
                 iconColor = Color(0xFF06B6D4),
                 onClick = onNavigateToDictionary

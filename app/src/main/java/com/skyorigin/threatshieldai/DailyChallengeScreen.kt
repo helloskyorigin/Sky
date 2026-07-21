@@ -74,7 +74,7 @@ fun DailyChallengeScreen(
     val warningOrange = PremiumColors.Warning
     val dangerRed = PremiumColors.Danger
 
-    val titleText = if (isHindi) "आज की स्कैम चुनौती" else "Today's Scam Challenge"
+    val titleText = if (isHindi) "Aaj ka Scam Challenge" else "Today's Scam Challenge"
 
     Scaffold(
         topBar = {
@@ -94,7 +94,7 @@ fun DailyChallengeScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = if (isHindi) "पीछे जाएं" else "Go back",
+                            contentDescription = if (isHindi) "Back" else "Go back",
                             tint = textPrimary
                         )
                     }
@@ -160,7 +160,7 @@ fun DailyChallengeScreen(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = if (isHindi) "कुल पूरे" else "Total Completed",
+                                        text = if (isHindi) "Total Complete" else "Total Completed",
                                         style = TextStyle(
                                             fontSize = 11.sp,
                                             color = textSecondary,
@@ -199,7 +199,7 @@ fun DailyChallengeScreen(
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = if (isHindi) "वर्तमान स्ट्रीक" else "Current Streak",
+                                        text = if (isHindi) "Current Streak" else "Current Streak",
                                         style = TextStyle(
                                             fontSize = 11.sp,
                                             color = textSecondary,
@@ -238,7 +238,7 @@ fun DailyChallengeScreen(
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = if (isHindi) "सर्वश्रेष्ठ स्ट्रीक" else "Best Streak",
+                                        text = if (isHindi) "Best Streak" else "Best Streak",
                                         style = TextStyle(
                                             fontSize = 11.sp,
                                             color = textSecondary,
@@ -358,9 +358,9 @@ fun DailyChallengeScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = if (isMessageStyle) {
-                                            if (isHindi) "संदिग्ध अलर्ट / संदेश" else "SUSPICIOUS ALERT / MESSAGE"
+                                            if (isHindi) "Suspicious Message" else "SUSPICIOUS ALERT / MESSAGE"
                                         } else {
-                                            if (isHindi) "स्कैम परिदृश्य" else "SCAM SCENARIO"
+                                            if (isHindi) "Scam Scenario" else "SCAM SCENARIO"
                                         },
                                         style = TextStyle(
                                             fontSize = 11.sp,
@@ -411,7 +411,7 @@ fun DailyChallengeScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = if (isHindi) "सही सुरक्षा प्रतिक्रिया चुनें:" else "Select the secure action response below:",
+                                            text = if (isHindi) "Safe Option Select kare:" else "Select the secure action response below:",
                                             style = TextStyle(
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Medium,
@@ -637,7 +637,7 @@ fun DailyChallengeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = if (isHindi) "विशेषज्ञ सुरक्षा विश्लेषण:" else "Expert Security Analysis:",
+                                        text = if (isHindi) "Expert Analysis:" else "Expert Security Analysis:",
                                         style = TextStyle(
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
@@ -681,7 +681,7 @@ fun DailyChallengeScreen(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = if (isHindi) "महत्वपूर्ण चेतावनी संकेत:" else "Key Warning Signs:",
+                                            text = if (isHindi) "Warning Signs:" else "Key Warning Signs:",
                                             style = TextStyle(
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -799,7 +799,7 @@ fun DailyChallengeScreen(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (isHindi) "क्या आप जानते हैं?" else "Did You Know?",
+                                        text = if (isHindi) "Did You Know?" else "Did You Know?",
                                         style = TextStyle(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
@@ -847,7 +847,7 @@ fun DailyChallengeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = if (isHindi) "✅ चुनौती पूरी हुई" else "✅ Challenge Completed",
+                                        text = if (isHindi) "✅ Challenge Completed" else "✅ Challenge Completed",
                                         style = TextStyle(
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
@@ -856,7 +856,7 @@ fun DailyChallengeScreen(
                                     )
                                 }
                                 Text(
-                                    text = if (isHindi) "नई स्कैम चुनौती के लिए कल वापस आएं।" else "Come back tomorrow for a new Scam Challenge.",
+                                    text = if (isHindi) "Naye Scam Challenge ke liye kal waapas aayein." else "Come back tomorrow for a new Scam Challenge.",
                                     style = TextStyle(
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
@@ -881,7 +881,7 @@ fun DailyChallengeScreen(
                             border = BorderStroke(1.dp, cardBorderColor)
                         ) {
                             Text(
-                                text = if (isHindi) "डैशबोर्ड पर वापस जाएं" else "Back to Dashboard",
+                                text = if (isHindi) "Back to Dashboard" else "Back to Dashboard",
                                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             )
                         }

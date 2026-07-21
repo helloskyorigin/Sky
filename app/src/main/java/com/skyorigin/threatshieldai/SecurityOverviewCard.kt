@@ -256,11 +256,7 @@ fun SecurityOverviewCard(
                     }
                 }
 
-                // Premium Status Badge
-                StatusBadge(
-                    status = protectionStatus,
-                    isHindi = isHindi
-                )
+                // Premium Status Badge removed as per request
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -14,8 +14,9 @@ class QuickChallengeWorker(
         val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val todayStr = getTodayString()
         val lastNotifDate = sp.getString("last_quick_notif_date", "")
+        val lastCompletedDate = sp.getString("quick_challenge_last_completed_date", "")
 
-        if (lastNotifDate != todayStr) {
+        if (lastCompletedDate != todayStr && lastNotifDate != todayStr) {
             NotificationHelper.showQuickChallengeNotification(context)
             sp.edit().putString("last_quick_notif_date", todayStr).apply()
         }
@@ -27,8 +28,8 @@ class QuickChallengeWorker(
     }
 
     private fun getTodayString(): String {
-        val calendar = Calendar.getInstance()
-        return "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH)}-${calendar.get(Calendar.DAY_OF_MONTH)}"
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        return sdf.format(java.util.Date())
     }
 
     companion object {
@@ -36,7 +37,7 @@ class QuickChallengeWorker(
             val currentDate = Calendar.getInstance()
             val dueDate = Calendar.getInstance()
 
-            dueDate.set(Calendar.HOUR_OF_DAY, 15) // 3:00 PM
+            dueDate.set(Calendar.HOUR_OF_DAY, 3) // 3:00 AM
             dueDate.set(Calendar.MINUTE, 0)
             dueDate.set(Calendar.SECOND, 0)
             dueDate.set(Calendar.MILLISECOND, 0)
@@ -57,15 +58,15 @@ class QuickChallengeWorker(
                 dailyWorkRequest
             )
             
-            // Handle missed notification immediately if today's hasn't been shown and it is past 3:00 PM
+            // Handle missed notification immediately if today's hasn't been shown and it is past 3:00 AM
             val calendarNow = Calendar.getInstance()
-            val calendar3PM = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 15)
+            val calendar3AM = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 3)
                 set(Calendar.MINUTE, 0)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
-            if (calendarNow.after(calendar3PM)) {
+            if (calendarNow.after(calendar3AM)) {
                 val todayWorkRequest = OneTimeWorkRequestBuilder<QuickChallengeWorker>().build()
                 WorkManager.getInstance(context).enqueueUniqueWork(
                     "QuickChallengeWorker_Missed",

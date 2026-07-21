@@ -14,8 +14,9 @@ class DailySafetyTipWorker(
         val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val todayStr = getTodayString()
         val lastNotifDate = sp.getString("last_tip_notif_date", "")
+        val lastOpenedDate = sp.getString("last_opened_tip_date", "")
 
-        if (lastNotifDate != todayStr) {
+        if (lastOpenedDate != todayStr && lastNotifDate != todayStr) {
             NotificationHelper.showDailySafetyTipNotification(context)
             sp.edit().putString("last_tip_notif_date", todayStr).apply()
         }
@@ -27,8 +28,8 @@ class DailySafetyTipWorker(
     }
 
     private fun getTodayString(): String {
-        val calendar = Calendar.getInstance()
-        return "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH)}-${calendar.get(Calendar.DAY_OF_MONTH)}"
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        return sdf.format(java.util.Date())
     }
 
     companion object {
@@ -36,7 +37,7 @@ class DailySafetyTipWorker(
             val currentDate = Calendar.getInstance()
             val dueDate = Calendar.getInstance()
 
-            dueDate.set(Calendar.HOUR_OF_DAY, 12)
+            dueDate.set(Calendar.HOUR_OF_DAY, 9)
             dueDate.set(Calendar.MINUTE, 0)
             dueDate.set(Calendar.SECOND, 0)
             dueDate.set(Calendar.MILLISECOND, 0)
@@ -57,15 +58,15 @@ class DailySafetyTipWorker(
                 dailyWorkRequest
             )
             
-            // Handle missed notification immediately if today's hasn't been shown and it is past 12:00 PM
+            // Handle missed notification immediately if today's hasn't been shown and it is past 9:00 AM
             val calendarNow = Calendar.getInstance()
-            val calendar12PM = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 12)
+            val calendar9AM = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 9)
                 set(Calendar.MINUTE, 0)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
-            if (calendarNow.after(calendar12PM)) {
+            if (calendarNow.after(calendar9AM)) {
                 val todayWorkRequest = OneTimeWorkRequestBuilder<DailySafetyTipWorker>().build()
                 WorkManager.getInstance(context).enqueueUniqueWork(
                     "DailySafetyTipWorker_Missed",
