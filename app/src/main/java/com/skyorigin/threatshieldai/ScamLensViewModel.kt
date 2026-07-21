@@ -194,7 +194,7 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
     var isHistoryLoading by mutableStateOf(false)
 
     // Daily Challenge States
-    var currentChallengeDay by mutableStateOf(prefs.getInt("challenge_day", 1))
+    var currentChallengeDay by mutableStateOf(getTodayChallengeDay())
     
     // Quick Challenge (formerly Quick Quiz) Unlocked count (1 to 50)
     var quickChallengeUnlockedCount by mutableStateOf(prefs.getInt("quick_challenge_unlocked_count", 1))
@@ -206,9 +206,9 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             prefs.edit().putInt("quick_challenge_unlocked_count", nextVal).apply()
         }
     }
-    var challengeCompletedToday by mutableStateOf(prefs.getBoolean("challenge_completed_today", false))
+    var challengeCompletedToday by mutableStateOf(prefs.getBoolean("challenge_completed_${getTodayChallengeDay()}", false))
     var selectedOptionIndex by mutableStateOf(
-        if (prefs.contains("selected_option_index")) prefs.getInt("selected_option_index", -1) else -1
+        prefs.getInt("challenge_selected_${getTodayChallengeDay()}", -1)
     )
     var challengeStreak by mutableStateOf(prefs.getInt("challenge_streak", 0))
     var totalCompleted by mutableStateOf(prefs.getInt("total_completed", 0))
@@ -342,17 +342,17 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             }
             launch {
                 preferencesRepo.challengeDayFlow.collect { day ->
-                    currentChallengeDay = day
+                    currentChallengeDay = getTodayChallengeDay()
                 }
             }
             launch {
                 preferencesRepo.challengeCompletedTodayFlow.collect { comp ->
-                    challengeCompletedToday = comp
+                    challengeCompletedToday = prefs.getBoolean("challenge_completed_${getTodayChallengeDay()}", false)
                 }
             }
             launch {
                 preferencesRepo.selectedOptionIndexFlow.collect { index ->
-                    selectedOptionIndex = index
+                    selectedOptionIndex = prefs.getInt("challenge_selected_${getTodayChallengeDay()}", -1)
                 }
             }
             launch {
@@ -652,22 +652,10 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun updateChallengeStateForDay(day: Int) {
-        val d = if (day < 1) 1 else if (day > 365) 365 else day
-        currentChallengeDay = d
-        challengeCompletedToday = prefs.getBoolean("challenge_completed_$d", false)
-        selectedOptionIndex = prefs.getInt("challenge_selected_$d", -1)
-    }
-
-    fun moveToPreviousChallenge() {
-        if (currentChallengeDay > 1) {
-            updateChallengeStateForDay(currentChallengeDay - 1)
-        }
-    }
-
-    fun moveToNextChallenge() {
-        if (currentChallengeDay < 365) {
-            updateChallengeStateForDay(currentChallengeDay + 1)
-        }
+        val today = getTodayChallengeDay()
+        currentChallengeDay = today
+        challengeCompletedToday = prefs.getBoolean("challenge_completed_$today", false)
+        selectedOptionIndex = prefs.getInt("challenge_selected_$today", -1)
     }
 
     fun completeChallenge(selectedIndex: Int) {

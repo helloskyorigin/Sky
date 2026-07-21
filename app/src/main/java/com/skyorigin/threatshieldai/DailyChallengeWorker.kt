@@ -16,7 +16,13 @@ class DailyChallengeWorker(
         val lastNotifDate = prefs.lastNotificationDateFlow.first()
         val todayStr = getTodayString()
 
-        if (lastNotifDate != todayStr) {
+        val calendar = Calendar.getInstance()
+        val day = calendar.get(Calendar.DAY_OF_YEAR)
+        val clampedDay = if (day > 365) 365 else if (day < 1) 1 else day
+        val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val isCompletedToday = sp.getBoolean("challenge_completed_$clampedDay", false)
+
+        if (lastNotifDate != todayStr && !isCompletedToday) {
             NotificationHelper.showDailyChallengeNotification(context)
             prefs.setLastNotificationDate(todayStr)
         }

@@ -50,8 +50,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = "🛡️ Today's Scam Challenge is ready!"
-        val body = "Can you spot the threat today? Tap to test your threat shield."
+        val title = "🛡️ Today's Scam Challenge"
+        val body = "A new scam challenge is ready.\nCan you spot today's scam?"
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_shield_notif)
