@@ -40,18 +40,16 @@ class DailyChallengeWorker(
 
     companion object {
         fun schedule(context: Context) {
-            val prefs = UserPreferencesRepository(context)
-            
             val currentDate = Calendar.getInstance()
-            val dueDate = Calendar.getInstance()
-
-            dueDate.set(Calendar.HOUR_OF_DAY, 9)
-            dueDate.set(Calendar.MINUTE, 0)
-            dueDate.set(Calendar.SECOND, 0)
-            dueDate.set(Calendar.MILLISECOND, 0)
+            val dueDate = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 9)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
 
             if (dueDate.before(currentDate)) {
-                dueDate.add(Calendar.HOUR_OF_DAY, 24)
+                dueDate.add(Calendar.DAY_OF_YEAR, 1)
             }
 
             val timeDiff = dueDate.timeInMillis - currentDate.timeInMillis
@@ -65,23 +63,6 @@ class DailyChallengeWorker(
                 ExistingWorkPolicy.REPLACE,
                 dailyWorkRequest
             )
-            
-            // Handle missed notification immediately if today's hasn't been shown and it is past 9 AM
-            val calendarNow = Calendar.getInstance()
-            val calendar9AM = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 9)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            if (calendarNow.after(calendar9AM)) {
-                val todayWorkRequest = OneTimeWorkRequestBuilder<DailyChallengeWorker>().build()
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    "DailyChallengeWorker_Missed",
-                    ExistingWorkPolicy.KEEP,
-                    todayWorkRequest
-                )
-            }
         }
     }
 }

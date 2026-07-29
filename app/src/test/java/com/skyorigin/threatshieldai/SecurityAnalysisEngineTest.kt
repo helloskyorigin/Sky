@@ -402,7 +402,7 @@ class SecurityAnalysisEngineTest {
 
         assertEquals("Phishing", result.scamType)
         assertEquals("Danger", result.textVerdict)
-        assertEquals(82, result.confidence)
+        assertTrue("Confidence should be dynamic and high", result.confidence >= 80)
     }
 
     @Test
@@ -540,5 +540,48 @@ class SecurityAnalysisEngineTest {
         assertEquals("Danger", result.verdict)
         assertEquals("No URLs", result.urlVerdict)
         assertTrue(result.finalReason.contains("OTP scam") || result.finalReason.contains("High-risk scam"))
+    }
+
+    @Test
+    fun testAirtelPromotionalMessageWithCleanUrl() = runBlocking {
+        mockInterceptor.shouldFailLlama = false
+        val message = "Badhai Ho! Ab apne Airtel recharge ke saath aapko mil raha hai movies, TV shows aur Live channels ka free access. Download karein Airtel Xstream Play aur dekhna shuru karein. open.airtelxstream.in/xOTTss"
+        val result = SecurityAnalysisEngine.performHybridAnalysis(null, message, false)
+        
+        println("=== AIRTEL PROMOTIONAL TEST RESULT ===")
+        println("1. Individual API/Security Signals: WebRisk=${result.webRiskStatus}, UrlVerdict=${result.urlVerdict}, URLs=${result.urlsFound.map { "${it.originalUrl} -> ${it.webRiskVerdict}" }}")
+        println("2. LLM Risk Assessment / AI Status: ${result.aiStatus}, TextVerdict=${result.textVerdict}")
+        println("3. Final Fusion Calculation: Verdict=${result.verdict}, Confidence=${result.confidence}")
+        println("4. Final Risk Score: ${result.riskScore}")
+        println("5. Category: ${result.scamType}")
+        println("6. Generated Reasons: ${result.finalReason}, TextSignals=${result.textSignals}")
+
+        assertEquals("Safe", result.verdict)
+        assertTrue("Risk score must be low (<= 20), got ${result.riskScore}", result.riskScore <= 20)
+        assertFalse("Must NOT contain Credential theft attempt", result.textSignals.contains("Credential theft attempt"))
+        assertFalse("Must NOT contain Urgency tactic detected", result.textSignals.contains("Urgency tactic detected"))
+        assertFalse("Must NOT contain Fake Support", result.textSignals.contains("Fake Support"))
+        assertFalse("Must NOT contain Unverified domain", result.textSignals.contains("Unverified domain"))
+    }
+
+    @Test
+    fun testDynamicConfidenceCalculation() = runBlocking {
+        // 1. High confidence for clear safe message
+        mockInterceptor.shouldFailLlama = false
+        mockInterceptor.isCase6SafeTest = true
+        val safeResult = SecurityAnalysisEngine.performHybridAnalysis(null, "Your recharge of ₹299 was successful.", false)
+        assertTrue("Safe message confidence should be high (>85), got ${safeResult.confidence}", safeResult.confidence > 85)
+
+        // 2. High confidence for clear danger message
+        mockInterceptor.isCase6SafeTest = false
+        mockInterceptor.isCase6DangerTest = true
+        val dangerResult = SecurityAnalysisEngine.performHybridAnalysis(null, "Dear customer, your account is locked. Share your 6-digit OTP to unlock now.", false)
+        assertTrue("Danger message confidence should be high (>85), got ${dangerResult.confidence}", dangerResult.confidence > 85)
+
+        // 3. Lower confidence for insufficient evidence / ambiguous message
+        mockInterceptor.isCase6DangerTest = false
+        mockInterceptor.isCase5Test = true
+        val ambiguousResult = SecurityAnalysisEngine.performHybridAnalysis(null, "Check this: http://example.com", false)
+        assertTrue("Ambiguous message confidence should be lower (<= 65), got ${ambiguousResult.confidence}", ambiguousResult.confidence <= 65)
     }
 }

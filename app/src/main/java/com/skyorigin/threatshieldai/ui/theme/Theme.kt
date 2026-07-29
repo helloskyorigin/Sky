@@ -1,4 +1,22 @@
 package com.skyorigin.threatshieldai.ui.theme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.clipPath
+
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -140,4 +158,26 @@ fun Modifier.premiumShadow(
         ambientColor = if (isDark) Color.Transparent else baseShadowColor.copy(alpha = 0.05f),
         spotColor = if (isDark) Color.Transparent else baseShadowColor.copy(alpha = 0.12f)
     )
+}
+
+@Composable
+fun OfficialBrandLogo(
+    modifier: Modifier = Modifier,
+    isDark: Boolean = LocalIsDark.current,
+    containerShape: Shape = CircleShape,
+    contentScale: ContentScale = ContentScale.Fit,
+    noBackground: Boolean = false
+) {
+    val logoRes = com.skyorigin.threatshieldai.R.drawable.threatshield_official_logo
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.foundation.Image(
+            painter = painterResource(id = logoRes),
+            contentDescription = "ThreatShield AI Logo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = contentScale
+        )
+    }
 }

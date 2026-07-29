@@ -52,7 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val themeFlow: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[THEME] ?: "LIGHT"
+        preferences[THEME] ?: "DARK"
     }
 
     val legalConsentAcceptedFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -156,7 +156,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val remainingScansFlow: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[REMAINING_SCANS] ?: 3
+        preferences[REMAINING_SCANS] ?: 2
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {

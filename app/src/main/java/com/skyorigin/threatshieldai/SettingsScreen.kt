@@ -27,6 +27,7 @@ import com.skyorigin.threatshieldai.ui.theme.*
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,23 +69,14 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.foundation.Image(
-                            painter = painterResource(id = R.drawable.ic_official_logo),
-                            contentDescription = "ThreatShield AI Logo",
-                            modifier = Modifier.height(40.dp),
-                            contentScale = ContentScale.Fit
+                    Text(
+                        text = "Settings",
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimary
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Settings",
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textPrimary
-                            )
-                        )
-                    }
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = bgColor
@@ -99,83 +91,71 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 32.dp, bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Top Permanent Dark Branding Area
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF0F172A),
+                border = BorderStroke(1.dp, Color(0xFF1E293B))
             ) {
-                // Official Logo naturally rendered
-                Image(
-                    painter = painterResource(id = R.drawable.ic_official_logo),
-                    contentDescription = "ThreatShield AI Logo",
+                Column(
                     modifier = Modifier
-                        .height(100.dp)
-                        .drawBehind {
-                            if (isDark) {
-                                val glowRadius = size.width * 0.7f
-                                drawCircle(
-                                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFF0A84FF).copy(alpha = 0.20f),
-                                            Color.Transparent
-                                        ),
-                                        center = center,
-                                        radius = glowRadius
-                                    ),
-                                    radius = glowRadius,
-                                    center = center
-                                )
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.threatshield_official_logo),
+                        contentDescription = "ThreatShield AI Logo",
+                        modifier = Modifier.size(230.dp),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            val yOffset = (-32).dp.roundToPx()
+                            layout(placeable.width, (placeable.height + yOffset).coerceAtLeast(0)) {
+                                placeable.placeRelative(0, yOffset)
                             }
-                        },
-                    contentScale = ContentScale.Fit
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "ThreatShield AI",
-                    style = TextStyle(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textPrimary
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
-                    text = if (isHindi) "AI-आधारित स्कैम सुरक्षा" else "AI-Powered Scam Protection",
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = textSecondary
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                val appVersion = remember {
-                    try {
-                        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                        packageInfo.versionName ?: "v1.0.0"
-                    } catch (e: Exception) {
-                        "v1.0"
+                        }
+                    ) {
+                        Text(
+                            text = "ThreatShield AI",
+                            style = TextStyle(
+                                fontSize = 20.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        val appVersion = remember {
+                            try {
+                                val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                                packageInfo.versionName ?: "v1.0.0"
+                            } catch (e: Exception) {
+                                "v1.0"
+                            }
+                        }
+
+                        Text(
+                            text = if (appVersion.startsWith("v")) "Version $appVersion" else "Version v$appVersion",
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
                     }
                 }
-                
-                Text(
-                    text = if (appVersion.startsWith("v")) "Version $appVersion" else "Version v$appVersion",
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = textSecondary.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Medium
-                    )
-                )
             }
 
             // Section 1: Preferences
@@ -248,7 +228,15 @@ fun SettingsScreen(
                     title = "Clear History",
                     subtitle = if (isHindi) "सभी एनालिसिस रिकॉर्ड मिटाएं" else "Delete all analysis records",
                     onClick = {
-                        showClearHistoryDialog = true
+                        if (viewModel.analysesHistory.isEmpty()) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "No scan history yet. Complete your first scan to get started.",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            showClearHistoryDialog = true
+                        }
                     },
                     textColor = com.skyorigin.threatshieldai.ui.theme.PremiumColors.Danger,
                     subColor = textSecondary
@@ -376,6 +364,8 @@ fun SettingsScreen(
                     subColor = textSecondary
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
         }
     }
@@ -515,7 +505,7 @@ fun SettingsScreen(
     }
 
     // Clear History Confirmation Dialog
-    if (showClearHistoryDialog) {
+    if (showClearHistoryDialog && viewModel.analysesHistory.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false },
             title = {

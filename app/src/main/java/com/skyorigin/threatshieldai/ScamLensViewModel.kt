@@ -28,6 +28,36 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
 
     var userInputText by mutableStateOf("")
 
+    var showNoInternetDialog by mutableStateOf(false)
+
+    init {
+        NetworkUtils.startMonitoring(application)
+        viewModelScope.launch {
+            NetworkUtils.isOnlineState.collect { isOnline ->
+                if (isOnline && showNoInternetDialog) {
+                    showNoInternetDialog = false
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        NetworkUtils.stopMonitoring(getApplication())
+    }
+
+    fun runWithInternet(context: Context, onOnline: () -> Unit) {
+        viewModelScope.launch {
+            val isOnline = NetworkUtils.isInternetAvailable(context)
+            if (isOnline) {
+                showNoInternetDialog = false
+                onOnline()
+            } else {
+                showNoInternetDialog = true
+            }
+        }
+    }
+
     val appOpenCountState = mutableStateOf(0)
     val usedDaysState = mutableStateOf<Set<String>>(emptySet())
     val lastFeedbackDismissedTimestampState = mutableStateOf(0L)
@@ -38,16 +68,19 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
     val todayDateState = mutableStateOf("")
     val lastResetDateState = mutableStateOf("")
 
-    private val _remainingScans = mutableStateOf(3)
-    val remainingScansState: androidx.compose.runtime.State<Int> = mutableStateOf(3) // Temporarily unlimited scans for testing
+    private val _remainingScans = mutableStateOf(2)
+    val remainingScansState: androidx.compose.runtime.State<Int> = _remainingScans
     var remainingScans: Int
-        get() = 3 // Temporarily unlimited scans for testing
+        get() = _remainingScans.value
         set(value) {
-            // Ignored for now
+            _remainingScans.value = value
+            viewModelScope.launch {
+                preferencesRepo.setRemainingScans(value)
+            }
         }
 
     private val _currentThemeMode = mutableStateOf(
-        ThemeMode.valueOf(prefs.getString("theme", ThemeMode.LIGHT.name) ?: ThemeMode.LIGHT.name)
+        ThemeMode.valueOf(prefs.getString("theme", ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
     )
     val currentThemeModeState: androidx.compose.runtime.State<ThemeMode> = _currentThemeMode
 
@@ -121,25 +154,34 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
-    private val _onboardingCompleted = mutableStateOf(prefs.getBoolean("onboarding_completed", false))
+    private val _onboardingCompleted = mutableStateOf(prefs.getBoolean("onboarding_completed", false) || prefs.getBoolean("legal_consent_accepted", false))
     var onboardingCompleted: Boolean
-        get() = _onboardingCompleted.value
+        get() = _onboardingCompleted.value || _legalConsentAccepted.value || prefs.getBoolean("onboarding_completed", false) || prefs.getBoolean("legal_consent_accepted", false)
         set(value) {
             _onboardingCompleted.value = value
+            _legalConsentAccepted.value = value
+            prefs.edit().putBoolean("onboarding_completed", value).putBoolean("legal_consent_accepted", value).commit()
             viewModelScope.launch {
+                preferencesRepo.setOnboardingCompleted(value)
+                preferencesRepo.setLegalConsentAccepted(value)
+            }
+        }
+
+    private val _legalConsentAccepted = mutableStateOf(prefs.getBoolean("legal_consent_accepted", false) || prefs.getBoolean("onboarding_completed", false))
+    var legalConsentAccepted: Boolean
+        get() = _legalConsentAccepted.value || _onboardingCompleted.value || prefs.getBoolean("legal_consent_accepted", false) || prefs.getBoolean("onboarding_completed", false)
+        set(value) {
+            _legalConsentAccepted.value = value
+            _onboardingCompleted.value = value
+            prefs.edit().putBoolean("legal_consent_accepted", value).putBoolean("onboarding_completed", value).commit()
+            viewModelScope.launch {
+                preferencesRepo.setLegalConsentAccepted(value)
                 preferencesRepo.setOnboardingCompleted(value)
             }
         }
 
-    private val _legalConsentAccepted = mutableStateOf(prefs.getBoolean("legal_consent_accepted", false))
-    var legalConsentAccepted: Boolean
-        get() = _legalConsentAccepted.value
-        set(value) {
-            _legalConsentAccepted.value = value
-            viewModelScope.launch {
-                preferencesRepo.setLegalConsentAccepted(value)
-            }
-        }
+    val hasAcceptedTerms: Boolean
+        get() = _onboardingCompleted.value || _legalConsentAccepted.value || prefs.getBoolean("onboarding_completed", false) || prefs.getBoolean("legal_consent_accepted", false)
 
     private val _userEmail = mutableStateOf(prefs.getString("user_email", "") ?: "")
     var userEmail: String
@@ -252,6 +294,12 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
     var analysisJob: kotlinx.coroutines.Job? = null
 
     init {
+        if (hasAcceptedTerms) {
+            viewModelScope.launch {
+                preferencesRepo.setOnboardingCompleted(true)
+                preferencesRepo.setLegalConsentAccepted(true)
+            }
+        }
         // Run migration and collection flows
         viewModelScope.launch {
             try {
@@ -261,7 +309,7 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
                         val onboarding = prefs.getBoolean("onboarding_completed", false)
                         preferencesRepo.setOnboardingCompleted(onboarding)
 
-                        val themeStr = prefs.getString("theme", "LIGHT") ?: "LIGHT"
+                        val themeStr = prefs.getString("theme", "DARK") ?: "DARK"
                         preferencesRepo.setTheme(themeStr)
 
                         val lang = prefs.getString("language", "en")
@@ -305,7 +353,14 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             // Keep local VM states in sync with DataStore changes reactively
             launch {
                 preferencesRepo.onboardingCompletedFlow.collect { completed ->
-                    _onboardingCompleted.value = completed
+                    if (completed) {
+                        _onboardingCompleted.value = true
+                        _legalConsentAccepted.value = true
+                        prefs.edit().putBoolean("onboarding_completed", true).putBoolean("legal_consent_accepted", true).commit()
+                    } else if (hasAcceptedTerms) {
+                        preferencesRepo.setOnboardingCompleted(true)
+                        preferencesRepo.setLegalConsentAccepted(true)
+                    }
                 }
             }
             launch {
@@ -320,7 +375,14 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             }
             launch {
                 preferencesRepo.legalConsentAcceptedFlow.collect { accepted ->
-                    _legalConsentAccepted.value = accepted
+                    if (accepted) {
+                        _legalConsentAccepted.value = true
+                        _onboardingCompleted.value = true
+                        prefs.edit().putBoolean("legal_consent_accepted", true).putBoolean("onboarding_completed", true).commit()
+                    } else if (hasAcceptedTerms) {
+                        preferencesRepo.setLegalConsentAccepted(true)
+                        preferencesRepo.setOnboardingCompleted(true)
+                    }
                 }
             }
             launch {
@@ -596,7 +658,7 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
                     timestamp = System.currentTimeMillis(),
                     scamType = result.scamType,
                     urlStatuses = result.urlsFound.map { urlResult ->
-                        org.json.JSONObject().apply {
+                        val jsonObj = org.json.JSONObject().apply {
                             put("original_url", urlResult.originalUrl)
                             put("normalized_url", urlResult.normalizedUrl)
                             put("expanded_url", urlResult.expandedUrl ?: "")
@@ -613,7 +675,10 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
                             put("urlhaus_status", urlResult.urlhausStatus)
                             put("urlscan_verdict", urlResult.urlscanVerdict)
                             put("urlscan_status", urlResult.urlscanStatus)
-                        }.toString()
+                        }
+                        val jsonStr = jsonObj.toString()
+                        android.util.Log.d("WebRiskTrace", "9. Value saved into urlStatuses JSON: $jsonStr")
+                        jsonStr
                     } + ("METADATA:" + org.json.JSONObject().apply {
                         put("text_verdict", result.textVerdict)
                         put("url_verdict", result.urlVerdict)
@@ -638,12 +703,14 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
                 throw e
             } catch (e: InternetConnectionException) {
                 _scanState.value = ScanState.Failed("INTERNET_DISCONNECTED")
+                showNoInternetDialog = true
                 AnalyticsManager.getInstance(context).logScanFailed("INTERNET_DISCONNECTED")
             } catch (e: ServiceUnavailableException) {
                 _scanState.value = ScanState.Failed("SERVICE_UNAVAILABLE")
                 AnalyticsManager.getInstance(context).logScanFailed("SERVICE_UNAVAILABLE")
             } catch (e: ConnectionLostException) {
                 _scanState.value = ScanState.Failed("CONNECTION_LOST")
+                showNoInternetDialog = true
                 AnalyticsManager.getInstance(context).logScanFailed("CONNECTION_LOST")
             } catch (e: ApiTimeoutException) {
                 _scanState.value = ScanState.Failed("TIMEOUT")
@@ -819,6 +886,7 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
                     preferencesRepo.setTodayDate(todayStr)
                     preferencesRepo.setTodayScanCount(0)
                     preferencesRepo.setLastResetDate(todayStr)
+                    preferencesRepo.setRemainingScans(2)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking and resetting daily scan limit: ", e)

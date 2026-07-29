@@ -84,7 +84,7 @@ object UrlDetectionEngine {
         urls.addAll(standardUrlRegex.findAll(text).map { it.value })
 
         // Basic match for bare domains with common TLDs (e.g. example.com)
-        val bareDomainRegex = "(?<!://)\\b([a-zA-Z0-9-]+\\.(com|org|net|in|co|us|me|ly|gl|app|site|xyz|online|info))(/\\S*)?\\b".toRegex(RegexOption.IGNORE_CASE)
+        val bareDomainRegex = "(?<![://@])\\b([a-zA-Z0-9-]+\\.(com|org|net|in|co|us|me|ly|gl|app|site|xyz|online|info))(/\\S*)?\\b".toRegex(RegexOption.IGNORE_CASE)
         urls.addAll(bareDomainRegex.findAll(text).map { "http://${it.value}" })
 
         return urls.distinct()

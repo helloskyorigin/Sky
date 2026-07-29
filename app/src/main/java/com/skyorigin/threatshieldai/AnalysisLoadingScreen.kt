@@ -62,7 +62,7 @@ fun AnalysisLoadingScreen(
     }
 
     val containsUrl = remember(textToAnalyze) {
-        android.util.Patterns.WEB_URL.matcher(textToAnalyze).find()
+        UrlDetectionEngine.extractUrls(textToAnalyze).isNotEmpty()
     }
 
     // 4. Checklist steps matching progress
@@ -181,6 +181,9 @@ fun AnalysisLoadingScreen(
                     hasFailed = true
                     showErrorDialog = state.error
                     isApiCallFinished = true
+                    if (state.error == "INTERNET_DISCONNECTED" || state.error == "CONNECTION_LOST") {
+                        onBack()
+                    }
                 }
             }
         }
@@ -503,28 +506,18 @@ fun AnalysisLoadingScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Link,
-                                        contentDescription = null,
-                                        tint = Color(0xFF0A84FF),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (isHindi) "${urlProgress?.detectedCount ?: 1} यूआरएल मिले" else "${urlProgress?.detectedCount ?: 1} URL Detected",
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
                                 
                                 val status = urlProgress?.status ?: "scanning"
-                                val (statusText, statusColor, statusBg) = when (status) {
-                                    "safe" -> Triple(if (isHindi) "सुरक्षित" else "Safe", Color(0xFF30D158), Color(0xFF30D158).copy(alpha = 0.15f))
-                                    "danger" -> Triple(if (isHindi) "खतरा" else "Danger", Color(0xFFFF453A), Color(0xFFFF453A).copy(alpha = 0.15f))
-                                    "failed" -> Triple(if (isHindi) "अधूरी जांच" else "Partial Check", Color(0xFFFF9F0A), Color(0xFFFF9F0A).copy(alpha = 0.15f))
-                                    else -> Triple(if (isHindi) "जांच जारी..." else "Scanning...", Color(0xFF0A84FF), Color(0xFF0A84FF).copy(alpha = 0.15f))
+                                val (statusText, statusColor, statusBg) = when {
+                                    status in listOf("safe", "danger", "suspicious", "UNVERIFIED") || (urlProgress?.progress ?: 0f) >= 1.0f -> {
+                                        Triple(if (isHindi) "पूर्ण" else "Completed", Color(0xFF0A84FF), Color(0xFF0A84FF).copy(alpha = 0.15f))
+                                    }
+                                    status == "failed" -> {
+                                        Triple(if (isHindi) "अधूरी जांच" else "Partial Check", Color(0xFFFF9F0A), Color(0xFFFF9F0A).copy(alpha = 0.15f))
+                                    }
+                                    else -> {
+                                        Triple(if (isHindi) "जांच जारी..." else "Scanning...", Color(0xFF0A84FF), Color(0xFF0A84FF).copy(alpha = 0.15f))
+                                    }
                                 }
                                 
                                 Box(
@@ -544,8 +537,16 @@ fun AnalysisLoadingScreen(
                             
                             Spacer(modifier = Modifier.height(6.dp))
                             
+                            val rawVerdict = urlProgress?.verdict ?: ""
+                            val isFinalVerdict = urlProgress?.status in listOf("safe", "danger", "suspicious", "UNVERIFIED") || (urlProgress?.progress ?: 0f) >= 1.0f
+                            val displayVerdictText = if (isFinalVerdict) {
+                                if (isHindi) "यूआरएल जांच पूरी हो गई है" else "URL analysis completed"
+                            } else {
+                                if (rawVerdict.isNotEmpty()) rawVerdict else (if (isHindi) "यूआरएल की जांच हो रही है..." else "Analyzing detected link...")
+                            }
+
                             Text(
-                                text = urlProgress?.verdict ?: (if (isHindi) "यूआरएल की जांच हो रही है..." else "Analyzing detected link..."),
+                                text = displayVerdictText,
                                 color = Color.White.copy(alpha = 0.6f),
                                 fontSize = 11.sp,
                                 maxLines = 1,
@@ -660,24 +661,24 @@ fun AnalysisLoadingScreen(
                 // Blurred soft blue gradient behind logo to make it glow natively
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(180.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.radialGradient(
                                 colors = listOf(
-                                    Color(0xFF0A84FF).copy(alpha = 0.15f * breathingAlpha),
+                                    Color(0xFF0A84FF).copy(alpha = 0.25f * breathingAlpha),
                                     Color.Transparent
                                 )
                             )
                         )
                 )
 
-                // Official Crisp Shield Logo
+                // Official Hero Master Shield Logo
                 Image(
-                    painter = painterResource(id = R.drawable.ic_official_logo),
+                    painter = painterResource(id = R.drawable.threatshield_official_logo),
                     contentDescription = "ThreatShield AI Logo",
                     modifier = Modifier
-                        .height(48.dp)
+                        .size(150.dp)
                         .scale(breathingScale)
                         .alpha(breathingAlpha),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit

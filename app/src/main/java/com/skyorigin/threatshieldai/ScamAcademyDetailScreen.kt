@@ -396,6 +396,8 @@ fun ScamAcademyDetailScreen(
             }
 
             // Close button at bottom
+            BannerAdComposable()
+
             PremiumButton(
                 onClick = onBack,
                 text = if (isHindi) "Got It" else "Got It",

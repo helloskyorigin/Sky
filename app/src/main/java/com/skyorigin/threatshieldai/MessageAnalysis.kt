@@ -20,25 +20,11 @@ data class MessageAnalysis(
 // Extension functions for multi-lingual and formatting support across screens
 
 fun MessageAnalysis.getTextVerdict(): String {
-    if (links.isEmpty()) {
-        return when (status.lowercase()) {
-            "danger" -> "Danger"
-            "warning" -> "Warning"
-            "suspicious" -> "Suspicious"
-            else -> "Safe"
-        }
-    }
-    val metadata = urlStatuses.firstOrNull { it.startsWith("METADATA:") }
-    if (metadata != null) {
-        try {
-            val json = org.json.JSONObject(metadata.substring("METADATA:".length))
-            return json.optString("text_verdict", "Safe")
-        } catch (e: Exception) {}
-    }
-    return when {
-        score > 75 -> "Danger"
-        score > 45 -> "Warning"
-        score > 20 -> "Suspicious"
+    val info = VerdictMapper.getVerdictForScore(score)
+    return when (info.titleEn) {
+        "HIGH RISK" -> "Danger"
+        "SUSPICIOUS" -> "Suspicious"
+        "LOW RISK" -> "Low Risk"
         else -> "Safe"
     }
 }
@@ -79,41 +65,15 @@ fun MessageAnalysis.getUrlVerdict(): String {
 }
 
 fun MessageAnalysis.getLocalizedStatus(isHindi: Boolean): String {
-    return if (isHindi) {
-        when (status.lowercase()) {
-            "safe" -> "Safe"
-            "suspicious" -> "Suspicious"
-            "warning" -> "Warning"
-            "danger", "unsafe" -> "Danger"
-            else -> status
-        }
-    } else {
-        status
-    }
+    return VerdictMapper.getVerdictForScore(score).getTitle(isHindi)
 }
 
 fun MessageAnalysis.getRiskLevelLabel(isHindi: Boolean): String {
-    return if (isHindi) {
-        when (status.lowercase()) {
-            "safe" -> "Low Risk"
-            "suspicious" -> "Medium Risk"
-            "warning" -> "High Risk"
-            "danger", "unsafe" -> "Severe Risk"
-            else -> "Unknown Risk"
-        }
-    } else {
-        when (status.lowercase()) {
-            "safe" -> "Low Risk"
-            "suspicious" -> "Medium Risk"
-            "warning" -> "High Risk"
-            "danger", "unsafe" -> "Severe Risk"
-            else -> "Unknown Risk"
-        }
-    }
+    return VerdictMapper.getVerdictForScore(score).getTitle(isHindi)
 }
 
 fun MessageAnalysis.getConfidenceLabel(isHindi: Boolean): String {
-    val conf = if (confidence > 0) confidence else score
+    val conf = if (confidence > 0) confidence else 50
     return if (isHindi) {
         when {
             conf >= 80 -> "High (${conf}%)"
@@ -316,7 +276,8 @@ data class ParsedUrlStatus(
     val phishtankStatus: String,
     val urlhausStatus: String,
     val urlscanVerdict: String = "UNVERIFIED",
-    val urlscanStatus: String = "UNKNOWN"
+    val urlscanStatus: String = "UNKNOWN",
+    val threatType: String? = null
 )
 
 fun parseUrlStatus(statusStr: String, isHindi: Boolean): ParsedUrlStatus? {
@@ -332,7 +293,8 @@ fun parseUrlStatus(statusStr: String, isHindi: Boolean): ParsedUrlStatus? {
         val urlhausStatus = json.optString("urlhaus_status", "UNKNOWN")
         val urlscanVerdict = json.optString("urlscan_verdict", "UNVERIFIED")
         val urlscanStatus = json.optString("urlscan_status", "UNKNOWN")
-        return ParsedUrlStatus(
+        val threatType = json.optString("threat_type", "").takeIf { it.isNotEmpty() }
+        val parsed = ParsedUrlStatus(
             originalUrl = url,
             riskLevel = risk,
             webRiskVerdict = webRisk,
@@ -342,8 +304,11 @@ fun parseUrlStatus(statusStr: String, isHindi: Boolean): ParsedUrlStatus? {
             phishtankStatus = phishtankStatus,
             urlhausStatus = urlhausStatus,
             urlscanVerdict = urlscanVerdict,
-            urlscanStatus = urlscanStatus
+            urlscanStatus = urlscanStatus,
+            threatType = threatType
         )
+        android.util.Log.d("WebRiskTrace", "10. Value parsed by parseUrlStatus(): originalUrl=$url, webRiskVerdict=$webRisk, webRiskStatus=$webRiskStatus")
+        return parsed
     } catch (e: Exception) {
         return null
     }

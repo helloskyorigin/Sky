@@ -125,13 +125,14 @@ fun SecurityOverviewCard(
     // Dynamic history state observations
     val history = viewModel.analysesHistory
     val totalScans = history.size
-    val safeCount = history.count { it.status.lowercase() == "safe" }
-    val scamCount = history.count { it.status.lowercase() == "danger" || it.status.lowercase() == "unsafe" }
-    val suspiciousCount = history.count { it.status.lowercase() == "suspicious" }
+    val safeCount = history.count { it.score in 0..19 }
+    val scamCount = history.count { it.score >= 70 }
+    val suspiciousCount = history.count { it.score in 40..69 }
+    val lowRiskCount = history.count { it.score in 20..39 }
     
     val protectionStatus = when {
         !viewModel.legalConsentAccepted || !viewModel.onboardingCompleted -> "INACTIVE"
-        scamCount > 0 || suspiciousCount > 0 -> "ATTENTION"
+        scamCount > 0 || suspiciousCount > 0 || lowRiskCount > 0 -> "ATTENTION"
         else -> "ACTIVE"
     }
     

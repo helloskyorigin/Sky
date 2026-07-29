@@ -35,15 +35,15 @@ class QuickChallengeWorker(
     companion object {
         fun schedule(context: Context) {
             val currentDate = Calendar.getInstance()
-            val dueDate = Calendar.getInstance()
-
-            dueDate.set(Calendar.HOUR_OF_DAY, 3) // 3:00 AM
-            dueDate.set(Calendar.MINUTE, 0)
-            dueDate.set(Calendar.SECOND, 0)
-            dueDate.set(Calendar.MILLISECOND, 0)
+            val dueDate = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 19) // 7:00 PM local time
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
 
             if (dueDate.before(currentDate)) {
-                dueDate.add(Calendar.HOUR_OF_DAY, 24)
+                dueDate.add(Calendar.DAY_OF_YEAR, 1)
             }
 
             val timeDiff = dueDate.timeInMillis - currentDate.timeInMillis
@@ -57,23 +57,6 @@ class QuickChallengeWorker(
                 ExistingWorkPolicy.REPLACE,
                 dailyWorkRequest
             )
-            
-            // Handle missed notification immediately if today's hasn't been shown and it is past 3:00 AM
-            val calendarNow = Calendar.getInstance()
-            val calendar3AM = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 3)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            if (calendarNow.after(calendar3AM)) {
-                val todayWorkRequest = OneTimeWorkRequestBuilder<QuickChallengeWorker>().build()
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    "QuickChallengeWorker_Missed",
-                    ExistingWorkPolicy.KEEP,
-                    todayWorkRequest
-                )
-            }
         }
     }
 }

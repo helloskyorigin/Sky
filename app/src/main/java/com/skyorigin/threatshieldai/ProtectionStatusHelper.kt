@@ -60,7 +60,7 @@ object ProtectionStatusHelper {
         if (history.isEmpty()) return ProtectionStatus.UNKNOWN
         
         val totalScans = history.size
-        val safeCount = history.count { it.status.lowercase() == "safe" }
+        val safeCount = history.count { it.score in 0..19 }
         val score = ((safeCount.toFloat() / totalScans) * 100).toInt().coerceIn(0, 100)
         
         return when {

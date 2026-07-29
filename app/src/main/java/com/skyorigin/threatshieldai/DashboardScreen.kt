@@ -196,12 +196,6 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_official_logo),
-                                contentDescription = "ThreatShield AI Logo",
-                                modifier = Modifier.height(24.dp),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                            )
                             Text(
                                 text = "ThreatShield AI",
                                 style = TextStyle(
@@ -450,7 +444,7 @@ fun DashboardScreen(
                         }
 
                         Button(
-                            onClick = onNavigateToScan,
+                            onClick = { viewModel.runWithInternet(context) { onNavigateToScan() } },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp)
@@ -596,7 +590,7 @@ fun DashboardScreen(
                             subtitle = if (isHindi) "Text या Link जांचें" else "Check text or link",
                             icon = Icons.Rounded.Shield,
                             tintColor = primaryBlue,
-                            onClick = onNavigateToScan,
+                            onClick = { viewModel.runWithInternet(context) { onNavigateToScan() } },
                             badgeText = if (isHindi) "सक्रिय" else "ACTIVE",
                             badgeColor = successGreen,
                             modifier = Modifier.weight(1f)

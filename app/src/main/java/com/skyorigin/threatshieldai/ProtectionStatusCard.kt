@@ -37,7 +37,7 @@ fun ProtectionStatusCard(
     val history = viewModel.analysesHistory
     val status = ProtectionStatusHelper.calculateStatus(history)
     val score = if (history.isEmpty()) 0 else {
-        val safeCount = history.count { it.status.lowercase() == "safe" }
+        val safeCount = history.count { it.score in 0..19 }
         ((safeCount.toFloat() / history.size) * 100).toInt().coerceIn(0, 100)
     }
 

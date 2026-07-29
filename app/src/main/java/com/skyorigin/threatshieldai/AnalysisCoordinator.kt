@@ -54,8 +54,26 @@ object AnalysisCoordinator {
                 date = "", // formatted in UI
                 status = mapAiStatus(aiResult.verdict),
                 score = aiResult.riskScore,
-                summary = aiResult.summary,
-                reasons = aiResult.textSignals,
+                summary = aiResult.summary.ifEmpty { 
+                    ExplainabilityEngine.generateExplanation(
+                        verdict = aiResult.verdict,
+                        riskScore = aiResult.riskScore,
+                        confidence = aiResult.confidence,
+                        extractedUrls = urls,
+                        urlResults = aiResult.urlsFound,
+                        detectedIndicators = aiResult.textSignals,
+                        aiAnalysisReason = aiResult.finalReason
+                    ).summary
+                },
+                reasons = ExplainabilityEngine.generateExplanation(
+                    verdict = aiResult.verdict,
+                    riskScore = aiResult.riskScore,
+                    confidence = aiResult.confidence,
+                    extractedUrls = urls,
+                    urlResults = aiResult.urlsFound,
+                    detectedIndicators = aiResult.textSignals,
+                    aiAnalysisReason = aiResult.finalReason
+                ).whyFlagged,
                 links = urls,
                 explain15 = aiResult.finalReason,
                 timestamp = System.currentTimeMillis(),

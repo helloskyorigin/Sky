@@ -309,12 +309,8 @@ fun HistoryScreen(
                             modifier = Modifier.size(80.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_official_logo),
-                                contentDescription = "Empty History Logo",
-                                modifier = Modifier.fillMaxSize().alpha(0.15f),
-                                contentScale = ContentScale.Fit,
-                                colorFilter = ColorFilter.tint(primaryBlue)
+                            com.skyorigin.threatshieldai.ui.theme.OfficialBrandLogo(
+                                modifier = Modifier.fillMaxSize().alpha(0.15f)
                             )
                         }
                         
@@ -424,17 +420,9 @@ fun HistoryCardItem(
     val warningOrange = Color(0xFFF59E0B)
     val successGreen = Color(0xFF10B981)
 
-    val statusColor = when (item.status.lowercase()) {
-        "danger", "unsafe", "high risk" -> dangerRed
-        "suspicious", "warning", "medium risk" -> warningOrange
-        else -> successGreen
-    }
-    
-    val statusText = when (item.status.lowercase()) {
-        "danger", "unsafe", "high risk" -> if (isHindi) "Danger" else "Danger"
-        "suspicious", "warning", "medium risk" -> if (isHindi) "Suspicious" else "Suspicious"
-        else -> if (isHindi) "Safe" else "Safe"
-    }
+    val verdictInfo = VerdictMapper.getVerdictForScore(item.score)
+    val statusColor = verdictInfo.color
+    val statusText = verdictInfo.getTitle(isHindi)
 
     Card(
         shape = RoundedCornerShape(16.dp),

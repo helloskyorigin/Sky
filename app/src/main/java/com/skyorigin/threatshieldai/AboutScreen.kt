@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import com.skyorigin.threatshieldai.ui.theme.PremiumIconContainer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -95,64 +96,68 @@ fun AboutScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Premium App Logo Shield Glow Box
-            Box(
+            // Premium Permanent Dark Branding Container
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF0F172A),
+                border = BorderStroke(1.dp, Color(0xFF1E293B))
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_official_logo),
-                    contentDescription = "ThreatShield AI Logo",
+                Column(
                     modifier = Modifier
-                        .height(48.dp)
-                        .drawBehind {
-                            if (isDark) {
-                                val glowRadius = size.height * 1.5f
-                                drawCircle(
-                                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFF3B82F6).copy(alpha = 0.2f),
-                                            Color.Transparent
-                                        ),
-                                        center = center,
-                                        radius = glowRadius
-                                    ),
-                                    radius = glowRadius,
-                                    center = center
-                                )
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.threatshield_official_logo),
+                        contentDescription = "ThreatShield AI Logo",
+                        modifier = Modifier.size(292.dp),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            val yOffset = (-44).dp.roundToPx()
+                            layout(placeable.width, (placeable.height + yOffset).coerceAtLeast(0)) {
+                                placeable.placeRelative(0, yOffset)
                             }
-                        },
-                    contentScale = ContentScale.Fit
-                )
+                        }
+                    ) {
+                        Text(
+                            text = "ThreatShield AI",
+                            style = TextStyle(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                letterSpacing = (-0.5).sp,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = "Version 1.0.0 (Build 124)\nDeveloper: Sky Origin\n© 2026 Sky Origin",
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 16.sp
+                            )
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Brand Titles
-            Text(
-                text = "ThreatShield AI",
-                style = TextStyle(
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = textDark,
-                    letterSpacing = (-0.5).sp
-                )
-            )
-
-            Text(
-                text = "Version 1.0.0 (Build 124)\nDeveloper: Sky Origin\n© 2026 Sky Origin",
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    color = textGray,
-                    fontWeight = FontWeight.Medium
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // "Built for safety" badge
             Row(

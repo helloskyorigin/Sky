@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -322,7 +323,7 @@ fun CommonScamExamplesScreen(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(filteredScams, key = { it.id }) { scam ->
+                    itemsIndexed(filteredScams, key = { _, it -> it.id }) { index, scam ->
                         val isExpanded = expandedScamId == scam.id
                         val isBookmarked = bookmarkedIds.contains(scam.id)
 
@@ -342,6 +343,10 @@ fun CommonScamExamplesScreen(
                                 shareScamDetails(context, scam, isHindi)
                             }
                         )
+                        
+                        if (index > 0 && index % 5 == 0) {
+                            BannerAdComposable(modifier = Modifier.padding(top = 16.dp))
+                        }
                     }
                 }
             }

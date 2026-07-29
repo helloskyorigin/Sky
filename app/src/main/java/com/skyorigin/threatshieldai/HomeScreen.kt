@@ -109,19 +109,19 @@ fun HomeScreen(
     
     val safeAction = QuickAction(
         label = if (isHindi) "Safe" else "Safe", 
-        sampleText = "Hi, I'll be 10 minutes late for the meeting today. See you soon!", 
+        sampleText = "Hi, the meeting has been moved to 3 PM today. Please confirm if the new time works for you. See you at the office.", 
         icon = Icons.Rounded.CheckCircle, 
         color = Color(0xFF10B981)
     )
     val suspiciousAction = QuickAction(
         label = if (isHindi) "Suspicious" else "Suspicious", 
-        sampleText = "Your account access is temporarily suspended. Please verify your details to restore access.", 
+        sampleText = "Hi, we found an issue with your account. Please contact our support team soon to confirm your details and avoid disruption.", 
         icon = Icons.Rounded.Warning, 
         color = Color(0xFFF59E0B)
     )
     val dangerAction = QuickAction(
         label = if (isHindi) "Danger" else "Danger", 
-        sampleText = "Congratulations! You have won $5,000 cash prize. Click here to claim your reward immediately before it expires: http://claim-prize-now.net", 
+        sampleText = "Urgent: Your bank account will be blocked today. Verify your OTP and banking details immediately using this link: http://claim-prize-now.net", 
         icon = Icons.Rounded.Error, 
         color = Color(0xFFEF4444)
     )
@@ -140,12 +140,6 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_official_logo),
-                            contentDescription = "ThreatShield AI Logo",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "ThreatShield AI",
                             fontSize = 17.sp,
@@ -260,8 +254,8 @@ fun HomeScreen(
                         BasicTextField(
                             value = inputText,
                             onValueChange = { newValue ->
-                                val acceptedValue = if (newValue.length > 1000) {
-                                    newValue.substring(0, 1000)
+                                val acceptedValue = if (newValue.length > 500) {
+                                    newValue.substring(0, 500)
                                 } else {
                                     newValue
                                 }
@@ -311,7 +305,7 @@ fun HomeScreen(
                         }
 
                         Text(
-                            text = "${inputText.length}/1000",
+                            text = "${inputText.length}/500",
                             color = textSecondary.copy(alpha = 0.8f),
                             fontSize = 12.sp,
                             modifier = Modifier.padding(start = 8.dp)
@@ -335,7 +329,7 @@ fun HomeScreen(
                                     if (clipData != null && clipData.itemCount > 0) {
                                         val text = clipData.getItemAt(0).text?.toString()
                                         if (!text.isNullOrBlank()) {
-                                            val acceptedVal = if (text.length > 1000) text.substring(0, 1000) else text
+                                            val acceptedVal = if (text.length > 500) text.substring(0, 500) else text
                                             inputText = acceptedVal
                                             viewModel.userInputText = acceptedVal
                                         }
@@ -359,9 +353,9 @@ fun HomeScreen(
                                         isAnalyzing = true
                                         focusManager.clearFocus()
                                         
-                                        if (!SecurityAnalysisEngine.isInternetAvailable(context)) {
+                                        if (!NetworkUtils.isInternetAvailable(context)) {
                                             isAnalyzing = false
-                                            showNoInternetDialog = true
+                                            viewModel.showNoInternetDialog = true
                                             return@launch
                                         }
                                         try {
@@ -375,7 +369,7 @@ fun HomeScreen(
                                     }
                                 }
                             },
-                            enabled = (inputText.trim().length in 15..1000) && !isAnalyzing,
+                            enabled = (inputText.trim().length in 15..500) && !isAnalyzing,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = primaryBlue,
                                 contentColor = Color.White
@@ -556,26 +550,35 @@ fun HomeScreen(
     }
 
     if (showLimitReachedDialog) {
+        val activity = LocalContext.current as? android.app.Activity
         AlertDialog(
             onDismissRequest = { showLimitReachedDialog = false },
-            title = { Text("Daily Limit Reached", fontWeight = FontWeight.Bold) },
-            text = { Text(if (isHindi) "आज की 3 AI scans की limit पूरी हो गई है। कृपया कल फिर प्रयास करें।" else "You have reached your daily limit of 3 AI scans. Please try again tomorrow.") },
+            title = { Text(if (isHindi) "और स्कैन चाहिए?" else "Need More Scans?", fontWeight = FontWeight.Bold) },
+            text = { Text(if (isHindi) "आज की फ्री लिमिट पूरी हो गई है। +2 मैसेज स्कैन अनलॉक करने के लिए एक छोटा स्पॉन्सर्ड वीडियो देखें।" else "You've reached today's free limit. Watch one short sponsored video to instantly unlock +2 Message Scans.") },
             confirmButton = {
-                TextButton(onClick = { showLimitReachedDialog = false }) {
-                    Text("OK", color = primaryBlue, fontWeight = FontWeight.Bold)
+                TextButton(onClick = {
+                    showLimitReachedDialog = false
+                    activity?.let {
+                        RewardedAdManager.showRewardedAd(
+                            activity = it,
+                            onRewardEarned = {
+                                viewModel.remainingScans += 2
+                            },
+                            onAdDismissed = { rewardEarned ->
+                                // ad dismissed
+                            },
+                            onAdFailedToShow = {
+                                android.widget.Toast.makeText(context, "Failed to load ad. Try again.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }) {
+                    Text(if (isHindi) "वीडियो देखें (+2 स्कैन)" else "Watch Ad to Get +2 Scans", color = primaryBlue, fontWeight = FontWeight.Bold)
                 }
-            }
-        )
-    }
-
-    if (showNoInternetDialog) {
-        AlertDialog(
-            onDismissRequest = { showNoInternetDialog = false },
-            title = { Text("No Internet Connection", fontWeight = FontWeight.Bold) },
-            text = { Text(if (isHindi) "कृपया अपना internet connection check करें और फिर प्रयास करें।" else "Please check your internet connection and try again.") },
-            confirmButton = {
-                TextButton(onClick = { showNoInternetDialog = false }) {
-                    Text("OK", color = primaryBlue, fontWeight = FontWeight.Bold)
+            },
+            dismissButton = {
+                TextButton(onClick = { showLimitReachedDialog = false }) {
+                    Text(if (isHindi) "बाद में" else "Maybe Later", color = textSecondary)
                 }
             }
         )

@@ -67,11 +67,7 @@ object ReportExportHelper {
         val successColor = 0xFF10B981.toInt()
         val accentColor = 0xFF3B82F6.toInt()
 
-        val statusColor = when (analysis.status) {
-            "Danger" -> dangerColor
-            "Suspicious" -> warningColor
-            else -> successColor
-        }
+        val statusColor = VerdictMapper.getVerdictForScore(analysis.score).colorInt
 
         // Draw solid background
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
@@ -207,7 +203,7 @@ object ReportExportHelper {
         canvas.drawText(typeLabel + (if (analysis.scamType.isNotEmpty()) analysis.scamType else "Unspecified"), 330f, 265f, verdictDescPaint)
 
         // AI Confidence Badge
-        val certVal = if (analysis.confidence > 0) analysis.confidence else analysis.score
+        val certVal = if (analysis.confidence > 0) analysis.confidence else 50
         val certText = "${certVal}% AI Certainty"
         val badgeBgPaint = Paint().apply { color = 0xFF0F172A.toInt(); style = Paint.Style.FILL }
         val badgeBorderPaint = Paint().apply { color = 0xFF334155.toInt(); style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true }
@@ -650,12 +646,14 @@ object ReportExportHelper {
             checkPageOverflow(65f)
             currentY += 10f
             
-            val isDanger = analysis.status.lowercase() == "danger" || analysis.status.lowercase() == "unsafe"
-            val isSuspicious = analysis.status.lowercase() == "warning" || analysis.status.lowercase() == "suspicious"
+            val vInfoPdf1 = VerdictMapper.getVerdictForScore(analysis.score)
+            val isDanger = vInfoPdf1.titleEn == "HIGH RISK"
+            val isSuspicious = vInfoPdf1.titleEn == "SUSPICIOUS"
             
-            val (bannerBg, bannerBorder, bannerTextColor) = when {
-                isDanger -> Triple(0xFFFEE2E2.toInt(), 0xFFEF4444.toInt(), 0xFF991B1B.toInt())
-                isSuspicious -> Triple(0xFFFEF3C7.toInt(), 0xFFF59E0B.toInt(), 0xFF92400E.toInt())
+            val (bannerBg, bannerBorder, bannerTextColor) = when (vInfoPdf1.titleEn) {
+                "HIGH RISK" -> Triple(0xFFFEE2E2.toInt(), 0xFFEF4444.toInt(), 0xFF991B1B.toInt())
+                "SUSPICIOUS" -> Triple(0xFFFEF3C7.toInt(), 0xFFF59E0B.toInt(), 0xFF92400E.toInt())
+                "LOW RISK" -> Triple(0xFFE0F2FE.toInt(), 0xFF0EA5E9.toInt(), 0xFF075985.toInt())
                 else -> Triple(0xFFD1FAE5.toInt(), 0xFF10B981.toInt(), 0xFF065F46.toInt())
             }
             
@@ -673,7 +671,7 @@ object ReportExportHelper {
             canvas.drawRoundRect(bannerRect, 8f, 8f, bannerBgPaint)
             canvas.drawRoundRect(bannerRect, 8f, 8f, bannerBorderPaint)
             
-            val verdictStr = if (isHindi) "Verdict: ${analysis.getLocalizedStatus(isHindi)}" else "Verdict: ${analysis.status.uppercase()}"
+            val verdictStr = "Verdict: ${vInfoPdf1.getTitle(isHindi)}"
             canvas.drawText("$verdictStr   |   Risk Score: ${analysis.score}/100", bannerRect.centerX(), bannerRect.centerY() + 4f, bannerTextPaint)
             
             currentY += 55f
@@ -701,92 +699,6 @@ object ReportExportHelper {
             }
             
             currentY += cardHeight + 20f
-            
-            // 4. Detected URL Analysis
-            if (analysis.links.isNotEmpty()) {
-                val parsedUrls = mutableListOf<ParsedUrlStatus>()
-                analysis.urlStatuses.forEach { statusStr ->
-                    if (!statusStr.startsWith("METADATA:")) {
-                        val parsed = parseUrlStatus(statusStr, false)
-                        if (parsed != null) {
-                            parsedUrls.add(parsed)
-                        }
-                    }
-                }
-                
-                checkPageOverflow(40f)
-                canvas.drawText("Link Security Analysis", 40f, currentY, headingPaint)
-                currentY += 10f
-                
-                if (parsedUrls.isEmpty()) {
-                    checkPageOverflow(30f)
-                    canvas.drawText("• Detected Link: ${analysis.links.first()}", 50f, currentY, boldTextPaint)
-                    currentY += 14f
-                    canvas.drawText("  Verdict: Dangerous / High Risk scam link detected.", 50f, currentY, normalTextPaint)
-                    currentY += 20f
-                } else {
-                    parsedUrls.forEach { parsed ->
-                        val urlSectionHeight = 85f
-                        checkPageOverflow(urlSectionHeight)
-                        
-                        val linkCardRect = RectF(40f, currentY, 555f, currentY + 70f)
-                        canvas.drawRoundRect(linkCardRect, 8f, 8f, cardPaint)
-                        canvas.drawRoundRect(linkCardRect, 8f, 8f, cardBorder)
-                        
-                        val linkY = currentY + 15f
-                        // URL
-                        canvas.drawText("Link:", 50f, linkY, boldTextPaint)
-                        val shortUrl = if (parsed.originalUrl.length > 65) parsed.originalUrl.take(62) + "..." else parsed.originalUrl
-                        canvas.drawText(shortUrl, 110f, linkY, normalTextPaint)
-                        
-                        val gridY = linkY + 14f
-                        canvas.drawText("Threat Database:", 50f, gridY, infoLabelPaint)
-                        val wrTextRaw = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
-                        val wrText = when {
-                            wrTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            wrTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(wrText, 145f, gridY, infoValPaint)
-                        
-                        canvas.drawText("Phishing Check:", 300f, gridY, infoLabelPaint)
-                        val ptTextRaw = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
-                        val ptText = when {
-                            ptTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            ptTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(ptText, 395f, gridY, infoValPaint)
-                        
-                        val gridY2 = gridY + 14f
-                        canvas.drawText("Malware Check:", 50f, gridY2, infoLabelPaint)
-                        val uhTextRaw = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
-                        val uhText = when {
-                            uhTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            uhTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(uhText, 145f, gridY2, infoValPaint)
-                        
-                        canvas.drawText("Link Verdict:", 300f, gridY2, infoLabelPaint)
-                        val parsedRisk = when (parsed.riskLevel.lowercase()) {
-                            "danger", "unsafe" -> "DANGEROUS"
-                            "suspicious", "warning" -> "SUSPICIOUS"
-                            else -> "SAFE"
-                        }
-                        val finalLinkPaint = Paint(infoValPaint).apply {
-                            color = when (parsedRisk) {
-                                "DANGEROUS" -> 0xFFEF4444.toInt()
-                                "SUSPICIOUS" -> 0xFFF59E0B.toInt()
-                                else -> 0xFF10B981.toInt()
-                            }
-                        }
-                        canvas.drawText(parsedRisk, 395f, gridY2, finalLinkPaint)
-                        
-                        currentY += 85f
-                    }
-                }
-            }
             
             // 5. Threat Indicators Section
             val reasonsList = analysis.reasons.ifEmpty { analysis.signals }.ifEmpty { listOf("Unusual message pattern") }
@@ -957,7 +869,7 @@ object ReportExportHelper {
             // Helper to draw header
             fun drawPageHeaderAndFooter(canv: Canvas, pNum: Int) {
                 // We draw header branding on every page!
-                canv.drawText("ThreatShield AI", 40f, 40f, titlePaint)
+                canv.drawText("ThreatShield AI Report", 40f, 40f, titlePaint)
                 canv.drawText("SECURITY THREAT EVALUATION & AI REPORT", 40f, 55f, subtitlePaint)
                 val linePaint = Paint().apply { color = lightGreyColor; strokeWidth = 1f }
                 canv.drawLine(40f, 65f, 555f, 65f, linePaint)
@@ -1021,12 +933,14 @@ object ReportExportHelper {
             checkPageOverflow(65f)
             currentY += 10f
             
-            val isDanger = analysis.status.lowercase() == "danger" || analysis.status.lowercase() == "unsafe"
-            val isSuspicious = analysis.status.lowercase() == "warning" || analysis.status.lowercase() == "suspicious"
+            val vInfoPdf2 = VerdictMapper.getVerdictForScore(analysis.score)
+            val isDanger = vInfoPdf2.titleEn == "HIGH RISK"
+            val isSuspicious = vInfoPdf2.titleEn == "SUSPICIOUS"
             
-            val (bannerBg, bannerBorder, bannerTextColor) = when {
-                isDanger -> Triple(0xFFFEE2E2.toInt(), 0xFFEF4444.toInt(), 0xFF991B1B.toInt())
-                isSuspicious -> Triple(0xFFFEF3C7.toInt(), 0xFFF59E0B.toInt(), 0xFF92400E.toInt())
+            val (bannerBg, bannerBorder, bannerTextColor) = when (vInfoPdf2.titleEn) {
+                "HIGH RISK" -> Triple(0xFFFEE2E2.toInt(), 0xFFEF4444.toInt(), 0xFF991B1B.toInt())
+                "SUSPICIOUS" -> Triple(0xFFFEF3C7.toInt(), 0xFFF59E0B.toInt(), 0xFF92400E.toInt())
+                "LOW RISK" -> Triple(0xFFE0F2FE.toInt(), 0xFF0EA5E9.toInt(), 0xFF075985.toInt())
                 else -> Triple(0xFFD1FAE5.toInt(), 0xFF10B981.toInt(), 0xFF065F46.toInt())
             }
             
@@ -1044,7 +958,7 @@ object ReportExportHelper {
             canvas.drawRoundRect(bannerRect, 8f, 8f, bannerBgPaint)
             canvas.drawRoundRect(bannerRect, 8f, 8f, bannerBorderPaint)
             
-            val verdictStr = if (isHindi) "Verdict: ${analysis.getLocalizedStatus(isHindi)}" else "Verdict: ${analysis.status.uppercase()}"
+            val verdictStr = "Verdict: ${vInfoPdf2.getTitle(isHindi)}"
             canvas.drawText("$verdictStr   |   Risk Score: ${analysis.score}/100", bannerRect.centerX(), bannerRect.centerY() + 4f, bannerTextPaint)
             
             currentY += 55f
@@ -1072,92 +986,6 @@ object ReportExportHelper {
             }
             
             currentY += cardHeight + 20f
-            
-            // 4. Detected URL Analysis
-            if (analysis.links.isNotEmpty()) {
-                val parsedUrls = mutableListOf<ParsedUrlStatus>()
-                analysis.urlStatuses.forEach { statusStr ->
-                    if (!statusStr.startsWith("METADATA:")) {
-                        val parsed = parseUrlStatus(statusStr, false)
-                        if (parsed != null) {
-                            parsedUrls.add(parsed)
-                        }
-                    }
-                }
-                
-                checkPageOverflow(40f)
-                canvas.drawText("Link Security Analysis", 40f, currentY, headingPaint)
-                currentY += 10f
-                
-                if (parsedUrls.isEmpty()) {
-                    checkPageOverflow(30f)
-                    canvas.drawText("• Detected Link: ${analysis.links.first()}", 50f, currentY, boldTextPaint)
-                    currentY += 14f
-                    canvas.drawText("  Verdict: Dangerous / High Risk scam link detected.", 50f, currentY, normalTextPaint)
-                    currentY += 20f
-                } else {
-                    parsedUrls.forEach { parsed ->
-                        val urlSectionHeight = 85f
-                        checkPageOverflow(urlSectionHeight)
-                        
-                        val linkCardRect = RectF(40f, currentY, 555f, currentY + 70f)
-                        canvas.drawRoundRect(linkCardRect, 8f, 8f, cardPaint)
-                        canvas.drawRoundRect(linkCardRect, 8f, 8f, cardBorder)
-                        
-                        val linkY = currentY + 15f
-                        // URL
-                        canvas.drawText("Link:", 50f, linkY, boldTextPaint)
-                        val shortUrl = if (parsed.originalUrl.length > 65) parsed.originalUrl.take(62) + "..." else parsed.originalUrl
-                        canvas.drawText(shortUrl, 110f, linkY, normalTextPaint)
-                        
-                        val gridY = linkY + 14f
-                        canvas.drawText("Threat Database:", 50f, gridY, infoLabelPaint)
-                        val wrTextRaw = if (parsed.webRiskStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.webRiskVerdict.uppercase()
-                        val wrText = when {
-                            wrTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            wrTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(wrText, 145f, gridY, infoValPaint)
-                        
-                        canvas.drawText("Phishing Check:", 300f, gridY, infoLabelPaint)
-                        val ptTextRaw = if (parsed.phishtankStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.phishtankVerdict.uppercase()
-                        val ptText = when {
-                            ptTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            ptTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(ptText, 395f, gridY, infoValPaint)
-                        
-                        val gridY2 = gridY + 14f
-                        canvas.drawText("Malware Check:", 50f, gridY2, infoLabelPaint)
-                        val uhTextRaw = if (parsed.urlhausStatus.uppercase() in listOf("FAILED", "TIMEOUT")) "FAILED" else parsed.urlhausVerdict.uppercase()
-                        val uhText = when {
-                            uhTextRaw in listOf("MALICIOUS", "DANGER") -> "THREAT"
-                            uhTextRaw in listOf("NO_KNOWN_THREAT", "SAFE") -> "CLEAR"
-                            else -> "UNVERIFIED"
-                        }
-                        canvas.drawText(uhText, 145f, gridY2, infoValPaint)
-                        
-                        canvas.drawText("Link Verdict:", 300f, gridY2, infoLabelPaint)
-                        val parsedRisk = when (parsed.riskLevel.lowercase()) {
-                            "danger", "unsafe" -> "DANGEROUS"
-                            "suspicious", "warning" -> "SUSPICIOUS"
-                            else -> "SAFE"
-                        }
-                        val finalLinkPaint = Paint(infoValPaint).apply {
-                            color = when (parsedRisk) {
-                                "DANGEROUS" -> 0xFFEF4444.toInt()
-                                "SUSPICIOUS" -> 0xFFF59E0B.toInt()
-                                else -> 0xFF10B981.toInt()
-                            }
-                        }
-                        canvas.drawText(parsedRisk, 395f, gridY2, finalLinkPaint)
-                        
-                        currentY += 85f
-                    }
-                }
-            }
             
             // 5. Threat Indicators Section
             val reasonsList = analysis.reasons.ifEmpty { analysis.signals }.ifEmpty { listOf("Unusual message pattern") }

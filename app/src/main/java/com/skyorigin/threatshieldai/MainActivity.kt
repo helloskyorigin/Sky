@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -25,6 +29,9 @@ import android.content.Intent
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.google.android.gms.ads.MobileAds
 
 fun Context.setAppLocale(language: String): Context {
@@ -36,13 +43,46 @@ fun Context.setAppLocale(language: String): Context {
 }
 
 class MainActivity : ComponentActivity() {
+    private var keepSplashOnScreen = true
+
+    private lateinit var consentManager: ConsentManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
+
+        lifecycleScope.launch {
+            delay(200)
+            keepSplashOnScreen = false
+        }
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.decorView.setBackgroundColor(android.graphics.Color.parseColor("#000000"))
         
         try {
-            AdMobManager.initialize(this)
+            consentManager = ConsentManager(this)
+            consentManager.gatherConsent(this) { consentError ->
+                if (consentError != null) {
+                    android.util.Log.w("MainActivity", "Consent gathering failed: ${consentError.errorCode} - ${consentError.message}")
+                }
+                try {
+                    if (consentManager.canRequestAds) {
+                        AdManager.initialize(this)
+                    }
+                } catch (e: Throwable) {
+                    android.util.Log.e("MainActivity", "Error in ConsentManager callback", e)
+                }
+            }
+            
+            if (consentManager.canRequestAds) {
+                AdManager.initialize(this)
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "Error initializing ConsentManager / AdManager", e)
+        }
+
+        try {
             NotificationHelper.createNotificationChannel(this)
             NotificationHelper.scheduleDailyChallengeNotification(this)
             AnalyticsManager.getInstance(this).logAppOpen()
@@ -81,64 +121,67 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(currentIntent) {
                     currentIntent?.let { intent ->
-                        if (intent.getStringExtra("navigate_to") == "result") {
-                            val timestamp = intent.getLongExtra("timestamp", 0L)
-                            if (timestamp != 0L) {
-                                val analysis = sharedViewModel.getScanByTimestamp(timestamp)
-                                if (analysis != null) {
-                                    sharedViewModel.currentAnalysisResult = analysis
-                                    intent.removeExtra("navigate_to")
-                                    navController.navigate("result") {
+                        val navigateTo = intent.getStringExtra("navigate_to")
+                        if (navigateTo != null) {
+                            intent.removeExtra("navigate_to")
+                            when (navigateTo) {
+                                "result" -> {
+                                    val timestamp = intent.getLongExtra("timestamp", 0L)
+                                    intent.removeExtra("timestamp")
+                                    var analysis: MessageAnalysis? = null
+                                    if (timestamp != 0L) {
+                                        analysis = sharedViewModel.getScanByTimestamp(timestamp)
+                                    }
+                                    if (analysis == null) {
+                                        analysis = sharedViewModel.currentAnalysisResult
+                                            ?: sharedViewModel.analysesHistory.firstOrNull()
+                                    }
+                                    if (analysis != null) {
+                                        sharedViewModel.currentAnalysisResult = analysis
+                                        navController.navigate("result") {
+                                            popUpTo("main") { inclusive = false }
+                                        }
+                                    }
+                                }
+                                "daily_challenge" -> {
+                                    navController.navigate("daily_challenge") {
                                         popUpTo("main") { inclusive = false }
                                     }
                                 }
-                            }
-                        } else if (intent.getStringExtra("navigate_to") == "daily_challenge") {
-                            intent.removeExtra("navigate_to")
-                            navController.navigate("daily_challenge") {
-                                popUpTo("main") { inclusive = false }
-                            }
-                        } else if (intent.getStringExtra("navigate_to") == "daily_tip") {
-                            intent.removeExtra("navigate_to")
-                            navController.navigate("daily_safety_tip") {
-                                popUpTo("main") { inclusive = false }
-                            }
-                        } else if (intent.getStringExtra("navigate_to") == "quick_quiz") {
-                            intent.removeExtra("navigate_to")
-                            navController.navigate("quick_quiz") {
-                                popUpTo("main") { inclusive = false }
+                                "daily_tip" -> {
+                                    navController.navigate("daily_safety_tip") {
+                                        popUpTo("main") { inclusive = false }
+                                    }
+                                }
+                                "quick_quiz" -> {
+                                    navController.navigate("quick_quiz") {
+                                        popUpTo("main") { inclusive = false }
+                                    }
+                                }
                             }
                         }
                     }
                 }
 
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
+                    val initialDestination = remember {
+                        if (intent?.hasExtra("navigate_to") == true && intent?.getStringExtra("navigate_to") != null) {
+                            "main"
+                        } else if (sharedViewModel.hasAcceptedTerms) {
+                            "main"
+                        } else {
+                            "get_started"
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
-                        startDestination = if (intent?.hasExtra("navigate_to") == true && intent?.getStringExtra("navigate_to") != null) "main" else "splash"
+                        startDestination = initialDestination
                     ) {
-                            composable(
-                                route = "splash",
-                                exitTransition = {
-                                    fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.95f, animationSpec = tween(300))
-                                }
-                            ) {
-                                SplashScreen(
-                                    modifier = Modifier.fillMaxSize(),
-                                    onLaunchApp = {
-                                        val dest = if (sharedViewModel.onboardingCompleted) {
-                                            "main"
-                                        } else {
-                                            "get_started"
-                                        }
-                                        navController.navigate(dest) {
-                                            popUpTo("splash") { inclusive = true }
-                                        }
-                                    }
-                                )
-                            }
                             composable(
                                 route = "get_started",
                                 enterTransition = {
@@ -213,12 +256,14 @@ class MainActivity : ComponentActivity() {
                                     fadeOut(animationSpec = tween(400))
                                 }
                             ) {
+                                val isDark = com.skyorigin.threatshieldai.ui.theme.LocalIsDark.current
+                                val isHindi = sharedViewModel.currentLanguage == "hi"
                                 val result = sharedViewModel.currentAnalysisResult
                                 if (result != null) {
                                     AnalysisResultScreen(
                                         modifier = Modifier.fillMaxSize(),
                                         analysis = result,
-                                        isHindi = sharedViewModel.currentLanguage == "hi",
+                                        isHindi = isHindi,
                                         onBack = {
                                             sharedViewModel.userInputText = ""
                                             navController.popBackStack()
@@ -228,6 +273,32 @@ class MainActivity : ComponentActivity() {
                                             navController.popBackStack("main", inclusive = false)
                                         }
                                     )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(if (isDark) Color(0xFF020617) else Color(0xFFF8FAFC)),
+                                        contentAlignment = androidx.compose.ui.Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                                            modifier = Modifier.padding(24.dp)
+                                        ) {
+                                            CircularProgressIndicator(color = Color(0xFF3B82F6))
+                                            Text(
+                                                text = if (isHindi) "परिणाम लोड हो रहा है..." else "Loading analysis result...",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = if (isDark) Color.White else Color.Black
+                                            )
+                                            Button(
+                                                onClick = { navController.popBackStack("main", inclusive = false) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                                            ) {
+                                                Text(if (isHindi) "डैशबोर्ड पर लौटें" else "Return to Dashboard", color = Color.White)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             composable(
@@ -395,6 +466,22 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             // Removed webview route
+                        }
+
+                        if (sharedViewModel.showNoInternetDialog) {
+                            NoInternetDialog(
+                                isHindi = sharedViewModel.currentLanguage == "hi",
+                                onDismiss = {
+                                    sharedViewModel.showNoInternetDialog = false
+                                },
+                                onRetry = {
+                                    val isAvailable = NetworkUtils.isInternetAvailable(context)
+                                    if (isAvailable) {
+                                        sharedViewModel.showNoInternetDialog = false
+                                    }
+                                    isAvailable
+                                }
+                            )
                         }
                     }
                 }

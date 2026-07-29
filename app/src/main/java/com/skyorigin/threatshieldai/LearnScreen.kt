@@ -154,7 +154,7 @@ fun LearnScreen(
                 description = if (isHindi) "Real-world scams ko identify karne ki apni ability ko test karein." else "Test your ability to identify real-world scams.",
                 icon = Icons.Rounded.EmojiEvents,
                 iconColor = PremiumColors.PrimaryAccent,
-                onClick = onNavigateToChallenge
+                onClick = { viewModel.runWithInternet(context) { onNavigateToChallenge() } }
             )
 
             // 2. Scam Academy
@@ -163,8 +163,11 @@ fun LearnScreen(
                 description = if (isHindi) "Common Scams ke baare mein jaanein aur Stay Safe Tips seekhein." else "Learn about common scams and how to stay protected.",
                 icon = Icons.Rounded.Class,
                 iconColor = Color(0xFF8B5CF6),
-                onClick = onNavigateToAcademy
+                onClick = { viewModel.runWithInternet(context) { onNavigateToAcademy() } }
             )
+
+            // Banner Ad
+            BannerAdComposable()
 
             // 3. Daily Safety Tip
             LearnCard(
@@ -172,7 +175,7 @@ fun LearnScreen(
                 description = if (isHindi) "Har din ek practical cybersecurity tip." else "One practical cybersecurity tip every day.",
                 icon = Icons.Rounded.Lightbulb,
                 iconColor = Color(0xFFEAB308),
-                onClick = onNavigateToDailyTip
+                onClick = { viewModel.runWithInternet(context) { onNavigateToDailyTip() } }
             )
 
             // 4. Quick Challenge
@@ -181,7 +184,7 @@ fun LearnScreen(
                 description = if (isHindi) "Sequential security levels ke saath apna knowledge test karein." else "Test your knowledge with sequential security levels.",
                 icon = Icons.Rounded.Quiz,
                 iconColor = Color(0xFF10B981),
-                onClick = onNavigateToQuiz
+                onClick = { viewModel.runWithInternet(context) { onNavigateToQuiz() } }
             )
 
             // 5. Common Scam Examples
@@ -190,7 +193,7 @@ fun LearnScreen(
                 description = if (isHindi) "Common scams aur warning signs ke examples ko explore karein." else "Explore examples of common scams and warning signs.",
                 icon = Icons.Rounded.Warning,
                 iconColor = PremiumColors.Danger,
-                onClick = onNavigateToCommonScams
+                onClick = { viewModel.runWithInternet(context) { onNavigateToCommonScams() } }
             )
 
             // 6. Cyber Dictionary
@@ -199,7 +202,7 @@ fun LearnScreen(
                 description = if (isHindi) "Important cybersecurity terms ko simple language mein samjhein." else "Understand important cybersecurity terms.",
                 icon = Icons.Rounded.MenuBook,
                 iconColor = Color(0xFF06B6D4),
-                onClick = onNavigateToDictionary
+                onClick = { viewModel.runWithInternet(context) { onNavigateToDictionary() } }
             )
 
             Spacer(modifier = Modifier.height(24.dp))

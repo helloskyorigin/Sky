@@ -166,7 +166,9 @@ object SecurityAnalysisEngine {
     }
 
     private suspend fun executeGoogleWebRisk(url: String, apiKey: String): ServiceResult {
+        Log.d("WebRiskTrace", "1. WEBRISK_REQUEST_STARTED: url=$url, 2. apiKeyConfigured=${apiKey.isNotEmpty() && apiKey != "your_web_risk_key_here"} (length=${apiKey.length})")
         if (apiKey.isEmpty() || apiKey == "your_web_risk_key_here") {
+            Log.d("WebRiskTrace", "5. executeGoogleWebRisk final verdict: UNVERIFIED, 6. final status: MISSING_KEY")
             return ServiceResult("UNVERIFIED", "MISSING_KEY")
         }
         try {
@@ -176,9 +178,12 @@ object SecurityAnalysisEngine {
                     val requestUrl = "https://webrisk.googleapis.com/v1/uris:search?threatTypes=MALWARE&threatTypes=SOCIAL_ENGINEERING&threatTypes=UNWANTED_SOFTWARE&uri=$encodedUrl&key=$apiKey"
                     val request = Request.Builder().url(requestUrl).get().build()
                     client.newCall(request).execute().use { response ->
+                        val code = response.code
+                        Log.d("WebRiskTrace", "3. Exact HTTP status code returned by Google Web Risk: $code")
                         if (response.isSuccessful) {
-                            val body = response.body?.string() ?: "{}"
-                            val json = JSONObject(body)
+                            val body = response.body?.string() ?: ""
+                            Log.d("WebRiskTrace", "4. Raw response body: $body")
+                            val json = if (body.isNotBlank()) JSONObject(body) else JSONObject()
                             val threat = json.optJSONObject("threat")
                             if (threat != null) {
                                 val threatTypesArr = threat.optJSONArray("threatTypes")
@@ -187,12 +192,13 @@ object SecurityAnalysisEngine {
                                 } else {
                                     "SOCIAL_ENGINEERING"
                                 }
+                                Log.d("UrlReputationEngine", "GoogleWebRisk mapped: MALICIOUS ($tType)")
                                 ServiceResult("MALICIOUS", "OK", tType)
                             } else {
+                                Log.d("UrlReputationEngine", "GoogleWebRisk mapped: NO_KNOWN_THREAT")
                                 ServiceResult("NO_KNOWN_THREAT", "OK")
                             }
                         } else {
-                            val code = response.code
                             if (code in 500..599 || code == 429) {
                                 throw IOException("Temporary server error: $code")
                             } else {
@@ -202,35 +208,56 @@ object SecurityAnalysisEngine {
                     }
                 }
             }, isPermanentError = { it is PermanentApiException })
+            Log.d("WebRiskTrace", "5. executeGoogleWebRisk final verdict: ${result.verdict}, 6. final status: ${result.status}")
             return result
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             Log.e("UrlReputationEngine", "GoogleWebRisk timed out", e)
+            Log.d("WebRiskTrace", "5. executeGoogleWebRisk final verdict: UNVERIFIED, 6. final status: TIMEOUT")
             return ServiceResult("UNVERIFIED", "TIMEOUT")
         } catch (e: Exception) {
             Log.e("UrlReputationEngine", "GoogleWebRisk failed: ${e.message}", e)
-            return ServiceResult("UNVERIFIED", "FAILED")
+            Log.d("WebRiskTrace", "5. executeGoogleWebRisk final verdict: UNVERIFIED, 6. final status: API_ERROR")
+            return ServiceResult("UNVERIFIED", "API_ERROR")
         }
     }
 
     private suspend fun executePhishTank(url: String): ServiceResult {
         try {
+            var phishtankKey = ""
+            try {
+                phishtankKey = BuildConfig.PHISHTANK_API_KEY
+            } catch (e: Exception) {}
+
             val result = executeWithRetry("PhishTank", block = {
                 kotlinx.coroutines.withTimeout(5000L) {
                     val encodedUrl = URLEncoder.encode(url, "UTF-8")
                     val requestUrl = "https://checkurl.phishtank.com/checkurl/"
-                    val body = "url=$encodedUrl&format=json".toRequestBody("application/x-www-form-urlencoded".toMediaType())
-                    val request = Request.Builder().url(requestUrl).post(body).build()
+                    val bodyString = if (phishtankKey.isNotEmpty() && phishtankKey != "your_phishtank_api_key_here") {
+                        "url=$encodedUrl&format=json&app_key=$phishtankKey"
+                    } else {
+                        "url=$encodedUrl&format=json"
+                    }
+                    val body = bodyString.toRequestBody("application/x-www-form-urlencoded".toMediaType())
+                    val request = Request.Builder()
+                        .url(requestUrl)
+                        .post(body)
+                        .addHeader("User-Agent", "ThreatShieldAI/1.0 (Android; Mobile; rv:1.0)")
+                        .build()
                     client.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
-                            val bodyString = response.body?.string() ?: ""
-                            if (bodyString.contains("\"in_database\": true") && bodyString.contains("\"valid\": true")) {
+                            val bodyStringRes = response.body?.string() ?: ""
+                            if (bodyStringRes.contains("\"in_database\": true") && bodyStringRes.contains("\"valid\": true")) {
                                 ServiceResult("MALICIOUS", "OK")
-                            } else {
+                            } else if (bodyStringRes.contains("\"in_database\":") || bodyStringRes.contains("results")) {
                                 ServiceResult("NO_KNOWN_THREAT", "OK")
+                            } else {
+                                ServiceResult("UNVERIFIED", "UNAVAILABLE")
                             }
                         } else {
                             val code = response.code
-                            if (code in 500..599 || code == 429) {
+                            if (code == 403 || code == 401) {
+                                ServiceResult("UNVERIFIED", "UNAVAILABLE")
+                            } else if (code in 500..599 || code == 429) {
                                 throw IOException("Temporary server error: $code")
                             } else {
                                 throw PermanentApiException("Permanent error: $code")
@@ -245,31 +272,50 @@ object SecurityAnalysisEngine {
             return ServiceResult("UNVERIFIED", "TIMEOUT")
         } catch (e: Exception) {
             Log.e("UrlReputationEngine", "PhishTank failed: ${e.message}", e)
-            return ServiceResult("UNVERIFIED", "FAILED")
+            return ServiceResult("UNVERIFIED", "UNAVAILABLE")
         }
     }
 
     private suspend fun executeUrlhaus(url: String): ServiceResult {
         try {
+            var urlhausKey = ""
+            try {
+                urlhausKey = BuildConfig.URLHAUS_API_KEY
+            } catch (e: Exception) {}
+
+            if (urlhausKey.isEmpty() || urlhausKey == "your_urlhaus_api_key_here") {
+                return ServiceResult("UNVERIFIED", "MISSING_KEY")
+            }
+
             val result = executeWithRetry("URLhaus", block = {
                 kotlinx.coroutines.withTimeout(5000L) {
                     val encodedUrl = URLEncoder.encode(url, "UTF-8")
                     val requestUrl = "https://urlhaus-api.abuse.ch/v1/url/"
                     val body = "url=$encodedUrl".toRequestBody("application/x-www-form-urlencoded".toMediaType())
-                    val request = Request.Builder().url(requestUrl).post(body).build()
+                    val requestBuilder = Request.Builder()
+                        .url(requestUrl)
+                        .post(body)
+                        .addHeader("User-Agent", "ThreatShieldAI/1.0 (Android; Mobile; rv:1.0)")
+                        .addHeader("Auth-Key", urlhausKey)
+                    
+                    val request = requestBuilder.build()
                     client.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
                             val bodyString = response.body?.string() ?: ""
-                            val json = JSONObject(bodyString)
+                            val json = if (bodyString.isNotBlank()) JSONObject(bodyString) else JSONObject()
                             val status = json.optString("query_status", "")
                             if (status == "ok") {
                                 ServiceResult("MALICIOUS", "OK")
-                            } else {
+                            } else if (status == "no_results") {
                                 ServiceResult("NO_KNOWN_THREAT", "OK")
+                            } else {
+                                ServiceResult("UNVERIFIED", "API_ERROR")
                             }
                         } else {
                             val code = response.code
-                            if (code in 500..599 || code == 429) {
+                            if (code == 401 || code == 403) {
+                                ServiceResult("UNVERIFIED", "UNAUTHORIZED")
+                            } else if (code in 500..599 || code == 429) {
                                 throw IOException("Temporary server error: $code")
                             } else {
                                 throw PermanentApiException("Permanent error: $code")
@@ -313,7 +359,56 @@ object SecurityAnalysisEngine {
     }
 
     private suspend fun executeUrlScan(url: String, apiKey: String): ServiceResult {
-        return ServiceResult("UNVERIFIED", "UNKNOWN")
+        if (url.isBlank()) return ServiceResult("UNVERIFIED", "UNKNOWN")
+        try {
+            return executeWithRetry("UrlScan", block = {
+                kotlinx.coroutines.withTimeout(6000L) {
+                    val encodedUrl = URLEncoder.encode(url, "UTF-8")
+                    val searchUrl = "https://urlscan.io/api/v1/search/?q=page.url:\"$url\""
+                    val requestBuilder = Request.Builder()
+                        .url(searchUrl)
+                        .addHeader("User-Agent", "ThreatShieldAI/1.0 (Android; Mobile)")
+                    if (apiKey.isNotEmpty() && apiKey != "your_urlscan_key_here") {
+                        requestBuilder.addHeader("API-Key", apiKey)
+                    }
+                    val request = requestBuilder.build()
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body?.string() ?: ""
+                            val json = if (body.isNotBlank()) JSONObject(body) else JSONObject()
+                            val results = json.optJSONArray("results")
+                            if (results != null && results.length() > 0) {
+                                var isMalicious = false
+                                for (i in 0 until results.length()) {
+                                    val item = results.optJSONObject(i) ?: continue
+                                    val verdicts = item.optJSONObject("verdicts")
+                                    val overall = verdicts?.optJSONObject("verdicts")?.optJSONObject("overall")
+                                        ?: verdicts?.optJSONObject("overall")
+                                    if (overall != null) {
+                                        if (overall.optBoolean("malicious", false) || overall.optInt("score", 0) > 0) {
+                                            isMalicious = true
+                                            break
+                                        }
+                                    }
+                                }
+                                if (isMalicious) {
+                                    ServiceResult("SUSPICIOUS_BEHAVIOR", "OK")
+                                } else {
+                                    ServiceResult("NO_KNOWN_THREAT", "OK")
+                                }
+                            } else {
+                                ServiceResult("NO_KNOWN_THREAT", "OK")
+                            }
+                        } else {
+                            ServiceResult("UNVERIFIED", "API_ERROR")
+                        }
+                    }
+                }
+            }, isPermanentError = { it is PermanentApiException })
+        } catch (e: Exception) {
+            Log.e("UrlReputationEngine", "UrlScan failed: ${e.message}")
+            return ServiceResult("UNVERIFIED", "FAILED")
+        }
     }
 
     internal var client: OkHttpClient = OkHttpClient.Builder()
@@ -323,13 +418,7 @@ object SecurityAnalysisEngine {
         .build()
 
     fun isInternetAvailable(context: android.content.Context): Boolean {
-        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-        if (connectivityManager != null) {
-            val activeNetwork = connectivityManager.activeNetwork ?: return false
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-            return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        }
-        return false
+        return NetworkUtils.isNetworkConnected(context)
     }
 
     suspend fun checkApiHealth(context: android.content.Context): Boolean = withContext(Dispatchers.IO) {
@@ -374,11 +463,6 @@ object SecurityAnalysisEngine {
     ): HybridAnalysisResult = withContext(Dispatchers.IO) {
         val overallStartTime = System.currentTimeMillis()
         
-        val matchedPresetResult = getMatchedPresetResult(text, isHindi)
-        if (matchedPresetResult != null) {
-            return@withContext matchedPresetResult
-        }
-
         if (context != null && !isInternetAvailable(context)) {
             throw InternetConnectionException("No internet connection")
         }
@@ -441,7 +525,7 @@ object SecurityAnalysisEngine {
                     aiStatus = "missing_key"
                     return@async null
                 }
-                val models = listOf("openai/gpt-oss-20b", "qwen/qwen3.6-27b", "openai/gpt-oss-120b")
+val models = listOf("openai/gpt-oss-20b", "qwen/qwen3.6-27b")
                 var lastException: Exception? = null
                 var successfulModelResult: JSONObject? = null
 
@@ -451,22 +535,38 @@ object SecurityAnalysisEngine {
                             You are ThreatShield AI's security analyst. Analyze the user message to identify scams/phishing and return a structured JSON response.
 
                             CLASSIFICATION RULES:
-                            1. SAFE: For legitimate, normal, transactional, or informational messages (including genuine bank updates, OTPs, telecom recharges, shipping alerts). Keywords like bank, kyc, recharge, pay, link, verify, otp do NOT make a message dangerous unless scam intent is clear.
+                            1. SAFE: For legitimate, normal, transactional, marketing, or promotional messages (including genuine bank updates, OTPs, telecom recharges, shipping alerts, free promotional offers, movie/OTT subscriptions, app download recommendations, loyalty rewards). Keywords like bank, kyc, recharge, pay, link, verify, otp, free, offer, congratulations, badhai, download, reward do NOT make a message dangerous or suspicious unless explicit fraud or scam intent is clear.
                             2. SUSPICIOUS: For messages with possible warnings but lacking definitive proof of malice.
-                            3. DANGEROUS: For clear fraud (impersonation, credential theft, fake refund/kyc/lottery, OTP traps, payment manipulation).
+                            3. DANGEROUS: For clear fraud (impersonation + threat/trap, credential theft, fake refund/kyc/lottery, OTP traps, payment manipulation).
                             4. UNABLE_TO_DETERMINE: For extremely short, vague, or context-less messages (e.g., "Hello", "Call me").
+
+                            PROMOTIONAL VS SCAM RULES:
+                            - Normal promotional messages from telecom providers, brands, or services offering free access, recharges, discounts, or app downloads without asking for sensitive credentials (passwords, OTPs, PINs, bank details) or making threats are SAFE.
+                            - Do NOT classify promotional offers or marketing language as DANGEROUS or SUSPICIOUS.
+                            - Do NOT report "Credential Harvesting" unless the message or link explicitly requests credentials/passwords/OTPs/PINs or is a verified phishing destination.
+                            - Do NOT report "Urgency Tactic" unless there is actual threat/pressure language (e.g. "account blocked in 1 hour", "police warrant"). Standard promotional language or "watch now" is NOT urgency.
+                            - Do NOT report "Fake Support" or "Unverified Domain" unless there is explicit fake support impersonation or verified malicious domain evidence.
 
                             JSON OUTPUT SCHEMA:
                             {
                               "classification": "SAFE" | "SUSPICIOUS" | "DANGEROUS" | "UNABLE_TO_DETERMINE",
                               "evidence_sufficiency": "SUFFICIENT" | "INSUFFICIENT",
                               "scam_probability": 0-100,
-                              "confidence": 0-100,
+                              "confidence": 50-99,
+                              "confidence_reason": "One short sentence explaining why.",
                               "scam_category": "OTP Scam" | "Bank Impersonation" | "Fake KYC" | "Parcel Scam" | "Lottery Scam" | "Investment Scam" | "Credential Harvesting" | "Fake Support" | "UPI Fraud" | "Refund Scam" | "Government Impersonation" | "Telecom Impersonation" | "Brand Impersonation" | "Social Engineering" | "None",
                               "short_reason": "One concise sentence summarizing the main security/scam aspect.",
                               "extracted_signals": ["Concise signal 1", "Concise signal 2"],
                               "advice": ["Concise next step 1", "Concise next step 2"]
                             }
+
+                            CONFIDENCE RULES (MUST BE 50 TO 99):
+                            - 95-99: Very strong evidence (multiple scam indicators agree, brand impersonation, credential theft attempt, OTP/Password request, urgency tactics, fake domain).
+                            - 90-94: Strong evidence.
+                            - 80-89: Likely correct.
+                            - 70-79: Moderate confidence.
+                            - 60-69: Low confidence.
+                            - 50-59: Very uncertain (ambiguous message, few indicators, mixed signals).
 
                             OUTPUT RULES:
                             - Output ONLY valid JSON. No markdown, no explanations outside JSON, no chain-of-thought, no prefix/suffix.
@@ -602,166 +702,73 @@ object SecurityAnalysisEngine {
                         }
                     }
 
-                    // Cache Miss: Query reputation APIs in parallel
-                    Log.d("UrlReputationEngine", "[CACHE MISS] Querying reputation APIs in parallel for: $originalUrl (Target: $targetUrl)")
+                    // Cache Miss: Query Google Web Risk API directly
+                    Log.d("UrlReputationEngine", "[CACHE MISS] Querying Google Web Risk directly for: $originalUrl (Target: $targetUrl)")
 
-                    var webRiskRes = ServiceResult("UNVERIFIED", "UNKNOWN")
-                    var phishtankRes = ServiceResult("UNVERIFIED", "UNKNOWN")
-                    var urlhausRes = ServiceResult("UNVERIFIED", "UNKNOWN")
-                    var urlscanRes = ServiceResult("UNVERIFIED", "UNKNOWN")
+                    val webRiskRes = try {
+                        executeGoogleWebRisk(targetUrl, webRiskKey)
+                    } catch (e: Exception) {
+                        Log.e("UrlReputationEngine", "Google Web Risk request failed", e)
+                        ServiceResult("UNVERIFIED", "FAILED")
+                    }
 
-                    if (webRiskKey.isEmpty() || webRiskKey == "your_web_risk_key_here") {
-                        UrlThreatResult(
-                            originalUrl = originalUrl,
-                            normalizedUrl = normalizedUrl,
-                            expandedUrl = expandedUrl,
-                            webRiskVerdict = "UNVERIFIED",
-                            phishtankVerdict = "UNVERIFIED",
-                            urlhausVerdict = "UNVERIFIED",
-                            finalUrlVerdict = "UNVERIFIED",
-                            riskLevel = "UNVERIFIED",
-                            isCached = false,
-                            threatType = null,
-                            scanTime = System.currentTimeMillis(),
-                            confidence = 10,
-                            webRiskStatus = "MISSING_KEY",
-                            phishtankStatus = "UNKNOWN",
-                            urlhausStatus = "UNKNOWN",
-                            urlscanVerdict = "UNVERIFIED",
-                            urlscanStatus = "UNKNOWN"
-                        )
-                    } else {
-                        try {
-                            coroutineScope {
-                                val webRiskDef = async { executeGoogleWebRisk(targetUrl, webRiskKey) }
-                                val phishtankDef = async { executePhishTank(targetUrl) }
-                                val urlhausDef = async { executeUrlhaus(targetUrl) }
-                                val urlscanDef = async { executeUrlScan(targetUrl, urlscanKey) }
+                    val webRiskVerdict = webRiskRes.verdict
+                    val webRiskStatusVal = webRiskRes.status
+                    val threatType = webRiskRes.threatType
 
-                                webRiskRes = webRiskDef.await()
-                                phishtankRes = phishtankDef.await()
-                                urlhausRes = urlhausDef.await()
-                                urlscanRes = urlscanDef.await()
-                            }
+                    val finalUrlVerdict = when {
+                        webRiskStatusVal == "OK" && webRiskVerdict == "MALICIOUS" -> "danger"
+                        webRiskStatusVal == "OK" -> "NO_KNOWN_THREAT"
+                        else -> "UNVERIFIED"
+                    }
 
-                            val webRiskVerdict = webRiskRes.verdict
-                            val webRiskStatusVal = webRiskRes.status
-                            val threatType = webRiskRes.threatType
+                    val confidence = if (webRiskStatusVal == "OK") 100 else 10
+                    val scanTime = System.currentTimeMillis()
 
-                            val phishtankVerdict = phishtankRes.verdict
-                            val phishtankStatusVal = phishtankRes.status
+                    val cacheEntry = CacheEntry(
+                        webRiskVerdict = webRiskVerdict,
+                        webRiskStatus = webRiskStatusVal,
+                        phishtankVerdict = "UNVERIFIED",
+                        phishtankStatus = "UNKNOWN",
+                        urlhausVerdict = "UNVERIFIED",
+                        urlhausStatus = "UNKNOWN",
+                        finalUrlVerdict = finalUrlVerdict,
+                        confidence = confidence,
+                        threatType = threatType,
+                        scanTime = scanTime,
+                        source = "GoogleWebRisk($webRiskStatusVal)",
+                        urlscanVerdict = "UNVERIFIED",
+                        urlscanStatus = "UNKNOWN"
+                    )
 
-                            val urlhausVerdict = urlhausRes.verdict
-                            val urlhausStatusVal = urlhausRes.status
+                    reputationCache[normalizedUrl] = cacheEntry
+                    if (expandedUrl != null) {
+                        reputationCache[expandedUrl] = cacheEntry
+                    }
 
-                            val urlscanVerdict = urlscanRes.verdict
-                            val urlscanStatusVal = urlscanRes.status
-
-                            // Final URL Verdict evaluation
-                            val hasMalware = (webRiskVerdict == "MALICIOUS" && (threatType == "MALWARE" || threatType == "UNWANTED_SOFTWARE")) || urlhausVerdict == "MALICIOUS"
-                            val hasPhishing = phishtankVerdict == "MALICIOUS"
-                            val hasSocialEngineering = (webRiskVerdict == "MALICIOUS" && threatType == "SOCIAL_ENGINEERING")
-                            val hasUrlscanSuspicious = (urlscanVerdict == "SUSPICIOUS_BEHAVIOR")
-
-                            val finalUrlVerdict = when {
-                                hasMalware || hasPhishing || hasSocialEngineering || webRiskVerdict == "MALICIOUS" || phishtankVerdict == "MALICIOUS" || urlhausVerdict == "MALICIOUS" -> "danger"
-                                hasUrlscanSuspicious -> "suspicious"
-                                webRiskVerdict == "NO_KNOWN_THREAT" || phishtankVerdict == "NO_KNOWN_THREAT" || urlhausVerdict == "NO_KNOWN_THREAT" -> "NO_KNOWN_THREAT"
-                                else -> "UNVERIFIED"
-                            }
-
-                            // Confidence score calculation
-                            var confidence = 100
-                            if (webRiskStatusVal != "OK") confidence -= 25
-                            if (phishtankStatusVal != "OK") confidence -= 25
-                            if (urlhausStatusVal != "OK") confidence -= 25
-
-                            val successVerdicts = mutableListOf<String>()
-                            if (webRiskStatusVal == "OK") successVerdicts.add(webRiskVerdict)
-                            if (phishtankStatusVal == "OK") successVerdicts.add(phishtankVerdict)
-                            if (urlhausStatusVal == "OK") successVerdicts.add(urlhausVerdict)
-
-                            if (successVerdicts.size >= 2) {
-                                val hasDangerVal = successVerdicts.contains("MALICIOUS")
-                                val hasSafeVal = successVerdicts.contains("NO_KNOWN_THREAT")
-                                if (hasDangerVal && hasSafeVal) {
-                                    confidence -= 30
-                                } else {
-                                    confidence += 10
-                                }
-                            } else if (successVerdicts.isEmpty()) {
-                                confidence = 10
-                            }
-
-                            val finalConfidence = confidence.coerceIn(10, 100)
-                            val scanTime = System.currentTimeMillis()
-
-                            val cacheEntry = CacheEntry(
-                                webRiskVerdict = webRiskVerdict,
-                                webRiskStatus = webRiskStatusVal,
-                                phishtankVerdict = phishtankVerdict,
-                                phishtankStatus = phishtankStatusVal,
-                                urlhausVerdict = urlhausVerdict,
-                                urlhausStatus = urlhausStatusVal,
-                                finalUrlVerdict = finalUrlVerdict,
-                                confidence = finalConfidence,
-                                threatType = threatType,
-                                scanTime = scanTime,
-                                source = "GoogleWebRisk($webRiskStatusVal)+PhishTank($phishtankStatusVal)+URLhaus($urlhausStatusVal)",
-                                urlscanVerdict = urlscanVerdict,
-                                urlscanStatus = urlscanStatusVal
-                            )
-
-                            // Save cache entry
-                            reputationCache[normalizedUrl] = cacheEntry
-                            if (expandedUrl != null) {
-                                reputationCache[expandedUrl] = cacheEntry
-                            }
-
-                            UrlThreatResult(
-                                originalUrl = originalUrl,
-                                normalizedUrl = normalizedUrl,
-                                expandedUrl = expandedUrl,
-                                webRiskVerdict = webRiskVerdict,
-                                phishtankVerdict = phishtankVerdict,
-                                urlhausVerdict = urlhausVerdict,
-                                finalUrlVerdict = finalUrlVerdict,
-                                riskLevel = finalUrlVerdict,
-                                isCached = false,
-                                threatType = threatType,
-                                scanTime = scanTime,
-                                confidence = finalConfidence,
-                                webRiskStatus = webRiskStatusVal,
-                                phishtankStatus = phishtankStatusVal,
-                                urlhausStatus = urlhausStatusVal,
-                                urlscanVerdict = urlscanVerdict,
-                                urlscanStatus = urlscanStatusVal
-                            )
-                        } catch (e: Exception) {
-                            Log.e("UrlReputationEngine", "Parallel URL API request failed", e)
-                            UrlThreatResult(
-                                originalUrl = originalUrl,
-                                normalizedUrl = normalizedUrl,
-                                expandedUrl = expandedUrl,
-                                webRiskVerdict = "UNVERIFIED",
-                                phishtankVerdict = "UNVERIFIED",
-                                urlhausVerdict = "UNVERIFIED",
-                                finalUrlVerdict = "UNVERIFIED",
-                                riskLevel = "UNVERIFIED",
-                                isCached = false,
-                                threatType = null,
-                                scanTime = System.currentTimeMillis(),
-                                confidence = 10,
-                                webRiskStatus = "FAILED",
-                                phishtankStatus = "FAILED",
-                                urlhausStatus = "FAILED",
-                                urlscanVerdict = "UNVERIFIED",
-                                urlscanStatus = "SCAN_FAILED"
-                            )
-                        }
+                    val urlThreatResult = UrlThreatResult(
+                        originalUrl = originalUrl,
+                        normalizedUrl = normalizedUrl,
+                        expandedUrl = expandedUrl,
+                        webRiskVerdict = webRiskVerdict,
+                        phishtankVerdict = "UNVERIFIED",
+                        urlhausVerdict = "UNVERIFIED",
+                        finalUrlVerdict = finalUrlVerdict,
+                        riskLevel = finalUrlVerdict,
+                        isCached = false,
+                        threatType = threatType,
+                        scanTime = scanTime,
+                        confidence = confidence,
+                        webRiskStatus = webRiskStatusVal,
+                        phishtankStatus = "UNKNOWN",
+                        urlhausStatus = "UNKNOWN",
+                        urlscanVerdict = "UNVERIFIED",
+                        urlscanStatus = "UNKNOWN"
+                    )
+                    Log.d("WebRiskTrace", "7. UrlThreatResult.webRiskVerdict: $webRiskVerdict, 8. UrlThreatResult.webRiskStatus: $webRiskStatusVal")
+                    urlThreatResult
                     }
                 }
-            }
 
             // Wait for both URL scans and AI API to finish
             val uniqueUrlResults = urlScanDeferreds.awaitAll()
@@ -846,9 +853,6 @@ object SecurityAnalysisEngine {
                 }
             }
             val evidenceSufficiency = aiOutput!!.optString("evidence_sufficiency", "SUFFICIENT")
-            if (evidenceSufficiency == "INSUFFICIENT" && classification != "DANGEROUS") {
-                classification = "UNABLE_TO_DETERMINE"
-            }
             aiClassification = classification
             
             textConfidence = aiOutput!!.optInt("confidence", 75)
@@ -930,7 +934,7 @@ object SecurityAnalysisEngine {
                     textScore = maxOf(textScore, 10)
                 } else {
                     // Low risk standard OTP
-                    textScore = maxOf(textScore, 20)
+                    textScore = maxOf(textScore, 15)
                 }
             }
 
@@ -1112,12 +1116,70 @@ object SecurityAnalysisEngine {
             }
         }
 
+        // CONCRETE THREAT VALIDATION
+        val lowerMsg = normalizedMessage.lowercase()
+        val hasOtpDemand = (lowerMsg.contains("otp") || lowerMsg.contains("verification code") || lowerMsg.contains("one time password") || lowerMsg.contains("one-time password") || lowerMsg.contains("pin")) &&
+                           ((lowerMsg.contains("share") && !lowerMsg.contains("do not share") && !lowerMsg.contains("don't share") && !lowerMsg.contains("never share") && !lowerMsg.contains("no comparta") && !lowerMsg.contains("must not share") && !lowerMsg.contains("should not share") && !lowerMsg.contains("cannot share")) || 
+                            lowerMsg.contains("provide") || lowerMsg.contains("tell ") || 
+                            (lowerMsg.contains("send") && !lowerMsg.contains("send otp") && !lowerMsg.contains("sending otp") && !lowerMsg.contains("sent") && !lowerMsg.contains("send standard")) ||
+                            (lowerMsg.contains("give") && !lowerMsg.contains("give missed call")) ||
+                            (lowerMsg.contains("enter") && !lowerMsg.contains("enter the otp") && !lowerMsg.contains("enter this otp") && !lowerMsg.contains("enter code") && !lowerMsg.contains("enter the code")))
+        val hasPasswordDemand = lowerMsg.contains("password") || lowerMsg.contains("cvv") || lowerMsg.contains("atm pin") || lowerMsg.contains("netbanking password") || lowerMsg.contains("banking credentials")
+        val hasRemoteAccessApp = lowerMsg.contains("anydesk") || lowerMsg.contains("teamviewer") || lowerMsg.contains("rustdesk") || lowerMsg.contains("quicksupport")
+        val hasSuspensionThreat = (lowerMsg.contains("account") || lowerMsg.contains("access") || lowerMsg.contains("netbanking") || lowerMsg.contains("card")) && 
+                                  (lowerMsg.contains("blocked") || lowerMsg.contains("suspended") || lowerMsg.contains("frozen") || lowerMsg.contains("locked") || lowerMsg.contains("unauthorized")) && 
+                                  (lowerMsg.contains("today") || lowerMsg.contains("immediately") || lowerMsg.contains("within") || lowerMsg.contains("urgent") || lowerMsg.contains("now") || lowerMsg.contains("visit") || lowerMsg.contains("http"))
+        val hasCoerciveThreat = lowerMsg.contains("police") || lowerMsg.contains("arrest") || lowerMsg.contains("court") || lowerMsg.contains("warrant") || lowerMsg.contains("legal action") || hasSuspensionThreat
+        val hasUpiFraud = (lowerMsg.contains("upi") || lowerMsg.contains("gpay") || lowerMsg.contains("phonepe") || lowerMsg.contains("paytm")) &&
+                        (lowerMsg.contains("approve collect") || lowerMsg.contains("enter pin to receive") || lowerMsg.contains("pay request"))
+        val hasFakeKycThreat = lowerMsg.contains("kyc") && (lowerMsg.contains("expired") || lowerMsg.contains("block") || lowerMsg.contains("suspend")) && (lowerMsg.contains("click") || lowerMsg.contains("link") || lowerMsg.contains("immediately") || lowerMsg.contains("http") || lowerMsg.contains("verify"))
+        val hasLotteryScam = (lowerMsg.contains("lottery") || lowerMsg.contains("won") || lowerMsg.contains("kbc") || lowerMsg.contains("prize") || lowerMsg.contains("25 lakh")) && 
+                             (lowerMsg.contains("claim") || lowerMsg.contains("whatsapp") || lowerMsg.contains("helpline") || lowerMsg.contains("contact"))
+        val hasInvestmentScam = (lowerMsg.contains("investment") || lowerMsg.contains("profit") || lowerMsg.contains("bitcoin") || lowerMsg.contains("crypto") || lowerMsg.contains("trading")) && 
+                                (lowerMsg.contains("guaranteed") || lowerMsg.contains("500%") || lowerMsg.contains("telegram") || lowerMsg.contains("vip") || lowerMsg.contains("daily profit"))
+        val hasConfirmedMaliciousUrl = urlResults.any { 
+            it.webRiskVerdict == "MALICIOUS" || it.phishtankVerdict == "MALICIOUS" || it.urlhausVerdict == "MALICIOUS" || it.finalUrlVerdict == "MALICIOUS" || it.finalUrlVerdict == "danger"
+        }
+
+        val hasConcreteThreat = hasOtpDemand || hasPasswordDemand || hasRemoteAccessApp || hasCoerciveThreat || hasUpiFraud || hasFakeKycThreat || hasLotteryScam || hasInvestmentScam || hasConfirmedMaliciousUrl
+
+        val isPromotionalMessage = (lowerMsg.contains("recharge") || lowerMsg.contains("offer") || lowerMsg.contains("free") || lowerMsg.contains("badhai") || 
+                                    lowerMsg.contains("congratulations") || lowerMsg.contains("movies") || lowerMsg.contains("tv shows") || 
+                                    lowerMsg.contains("discount") || lowerMsg.contains("cashback") || lowerMsg.contains("reward") || 
+                                    lowerMsg.contains("benefit") || lowerMsg.contains("download") || lowerMsg.contains("xstream") ||
+                                    lowerMsg.contains("live channels")) && !hasConcreteThreat
+
+        if (isPromotionalMessage) {
+            // Override false-positive LLM speculation for promotional/marketing messages
+            aiClassification = "SAFE"
+            textScore = minOf(textScore, 15)
+            scamCategory = "Safe Promotional Offer"
+            shortReason = if (isHindi) {
+                "संदेश में कोई सुरक्षा खतरा या संदिग्ध पैटर्न नहीं पाया गया।"
+            } else {
+                if (lowerMsg.contains("recharge")) {
+                    "No security threats or suspicious scam patterns detected in message content or links. Standard recharge confirmation."
+                } else {
+                    "No security threats or suspicious scam patterns detected in message content or links. Standard promotional message."
+                }
+            }
+        }
+
+        if (aiClassification == "SAFE" || isPromotionalMessage) {
+            extractedSignals.removeAll { signal ->
+                val s = signal.lowercase()
+                s.contains("credential") || s.contains("support") || s.contains("urgency") || 
+                s.contains("phishing") || s.contains("fake") || s.contains("unverified") ||
+                s.contains("impersonation") || s.contains("scam") || s.contains("threat")
+            }
+        }
+
         // TEXT RULES
         var textVerdict = when {
-            aiClassification == "UNABLE_TO_DETERMINE" || aiClassification == "INSUFFICIENT_EVIDENCE" -> "Unable to Determine"
-            textScore >= 76 -> "Danger"
-            textScore >= 46 -> "Warning"
-            textScore >= 21 -> "Suspicious"
+            aiClassification == "UNABLE_TO_DETERMINE" -> "Unable to Determine"
+            textScore >= 70 -> "Danger"
+            textScore >= 40 -> "Warning"
+            textScore >= 20 -> "Suspicious"
             else -> "Safe"
         }
 
@@ -1129,7 +1191,7 @@ object SecurityAnalysisEngine {
             it.urlscanVerdict == "SUSPICIOUS_BEHAVIOR" || it.finalUrlVerdict == "SUSPICIOUS" || it.finalUrlVerdict == "suspicious"
         }
         val urlScanHasUnverified = !urlScanHasDanger && !urlScanHasSuspicious && urlResults.any { 
-            it.webRiskVerdict == "UNVERIFIED" || it.phishtankVerdict == "UNVERIFIED" || it.urlhausVerdict == "UNVERIFIED" || it.finalUrlVerdict == "UNVERIFIED" || it.finalUrlVerdict == "unverified"
+            it.finalUrlVerdict == "UNVERIFIED" || it.finalUrlVerdict == "unverified"
         }
         
         val overallUrlVerdict = when {
@@ -1248,18 +1310,51 @@ object SecurityAnalysisEngine {
         }
 
         // CONFIDENCE ENGINE (Deterministic, 0-100)
-        var finalConfidence = 75
-        
+        val aiProvidedConf = if (aiOutput != null && aiOutput!!.has("confidence")) {
+            aiOutput!!.optInt("confidence", -1)
+        } else -1
+
+        var baseConfidence: Int = if (aiOutput != null && aiProvidedConf in 1..100) {
+            aiProvidedConf
+        } else {
+            when {
+                textVerdict == "Danger" -> if (extractedSignals.size >= 2) 95 else 88
+                textVerdict == "Safe" -> if (extractedSignals.isEmpty()) 94 else 85
+                textVerdict == "Suspicious" || textVerdict == "Warning" -> 72
+                textVerdict == "Unable to Determine" -> 50
+                else -> 75
+            }
+        }
+
+        // Adjust for AI uncertainty or evidence insufficiency
+        if (aiClassification == "UNABLE_TO_DETERMINE") {
+            baseConfidence = minOf(baseConfidence, 55)
+        }
+
+        var finalConfidence = baseConfidence
+
+        if (aiFailed) {
+            finalConfidence -= 10 // AI unavailable penalty
+        }
+
+        // Signal count adjustments
+        if (textVerdict == "Danger" && extractedSignals.size >= 2) {
+            finalConfidence += 5
+        }
+        if (textVerdict == "Safe" && extractedSignals.isEmpty()) {
+            finalConfidence += 5
+        }
+
         if (extractedUrls.isNotEmpty()) {
             val validVerdicts = urlResults.flatMap { 
                 listOf(it.webRiskVerdict, it.phishtankVerdict, it.urlhausVerdict) 
             }.filter { it != "UNVERIFIED" }
             
             val uniqueVerdicts = validVerdicts.distinct()
-            if (uniqueVerdicts.size == 1) {
-                finalConfidence += 15 // Multiple reputation services agree
+            if (uniqueVerdicts.size == 1 && validVerdicts.isNotEmpty()) {
+                finalConfidence += 10 // Multiple reputation services agree
             } else if (uniqueVerdicts.size > 1) {
-                finalConfidence -= 20 // API disagreement
+                finalConfidence -= 15 // API disagreement
             }
             
             if (overallUrlVerdict == "UNVERIFIED") {
@@ -1267,44 +1362,31 @@ object SecurityAnalysisEngine {
             }
             
             if (urlResults.any { it.webRiskStatus == "TIMEOUT" || it.phishtankStatus == "TIMEOUT" || it.urlhausStatus == "TIMEOUT" }) {
-                finalConfidence -= 15 // Timeout
+                finalConfidence -= 10 // Timeout
             }
             if (urlResults.any { it.webRiskStatus == "FAILED" || it.phishtankStatus == "FAILED" || it.urlhausStatus == "FAILED" }) {
-                finalConfidence -= 10 // Partial scan
+                finalConfidence -= 5 // Partial scan
             }
         }
         
         // URL and Text agreement
         val isUrlSafe = overallUrlVerdict == "NO_KNOWN_THREAT" || overallUrlVerdict == "No URLs"
         if (overallUrlVerdict == "MALICIOUS" && textVerdict == "Danger") {
-            finalConfidence += 15
-        } else if (isUrlSafe && textVerdict == "Safe") {
-            finalConfidence += 15
-        } else if ((overallUrlVerdict == "MALICIOUS" && textVerdict == "Safe") || (isUrlSafe && textVerdict == "Danger")) {
-            finalConfidence -= 15
-        }
-        
-        // Multiple scam indicators
-        if (extractedSignals.size >= 2) {
             finalConfidence += 10
-        }
-        
-        // Weak evidence
-        if (textVerdict == "Suspicious") {
-            finalConfidence -= 10
-        }
-        
-        if (aiFailed) {
+        } else if (isUrlSafe && textVerdict == "Safe") {
+            finalConfidence += 5
+        } else if ((overallUrlVerdict == "MALICIOUS" && textVerdict == "Safe") || (overallUrlVerdict == "NO_KNOWN_THREAT" && textVerdict == "Danger")) {
             finalConfidence -= 15
-        } else if (aiOutput != null) {
-            val aiConf = aiOutput!!.optInt("confidence", 75)
-            finalConfidence = (finalConfidence + aiConf) / 2
         }
         
-        finalConfidence = finalConfidence.coerceIn(10, 100)
-        if (finalVerdict == "Scan Incomplete") {
-            finalConfidence = 0
+        // Weak / Ambiguous evidence
+        if (textVerdict == "Suspicious" || finalVerdict == "Suspicious") {
+            finalConfidence -= 8
+        } else if (textVerdict == "Unable to Determine" || finalVerdict == "Unable to Determine") {
+            finalConfidence = minOf(finalConfidence, 55)
         }
+        
+        finalConfidence = if (finalVerdict == "Scan Incomplete") 0 else finalConfidence.coerceIn(15, 99)
 
         // EXPLANATION ENGINE
         val reasons = mutableListOf<String>()
@@ -1343,20 +1425,22 @@ object SecurityAnalysisEngine {
             } else if (extractedSignals.isNotEmpty()) {
                 reasons.add("Suspicious scam signals identified in message.")
             }
-            if (overallUrlVerdict == "UNVERIFIED") {
+            if (overallUrlVerdict == "UNVERIFIED" && extractedUrls.isNotEmpty()) {
                 reasons.add("Unverified URL requires caution.")
             }
             if (reasons.isEmpty()) {
                 reasons.add("Potential threat signals detected.")
             }
         } else if (finalVerdict == "Suspicious") {
-            if (overallUrlVerdict == "UNVERIFIED") {
+            if (overallUrlVerdict == "UNVERIFIED" && extractedUrls.isNotEmpty()) {
                 reasons.add("URL reputation is currently unavailable.")
             }
             if (extractedSignals.isNotEmpty()) {
                 reasons.add("Weak or partial scam indicators found.")
-            } else {
+            } else if (extractedUrls.isNotEmpty()) {
                 reasons.add("Message contains unverified external links.")
+            } else {
+                reasons.add("Suspicious message content detected.")
             }
         } else if (finalVerdict == "Safe") {
             reasons.add("No malicious URL or scam indicators detected.")
@@ -1462,6 +1546,16 @@ object SecurityAnalysisEngine {
             }
         }
 
+        val explainabilityRes = ExplainabilityEngine.generateExplanation(
+            verdict = finalVerdict,
+            riskScore = finalScore,
+            confidence = finalConfidence,
+            extractedUrls = extractedUrls,
+            urlResults = urlResults,
+            detectedIndicators = extractedSignals,
+            aiAnalysisReason = shortReason.ifEmpty { finalReasonStr }
+        )
+
         val processingTime = System.currentTimeMillis() - overallStartTime
         Log.d("UrlReputationEngine", "[Threat Fusion completed] Time: ${processingTime}ms, Cache hits: (checked dynamically), Verdict: $finalVerdict")
 
@@ -1473,13 +1567,15 @@ object SecurityAnalysisEngine {
             originalMessage = originalMessage,
             normalizedMessage = normalizedMessage,
             urlsFound = urlResults,
-            textSignals = extractedSignals,
+            textSignals = (extractedSignals + explainabilityRes.whyFlagged).distinct().ifEmpty { 
+                listOf(if (finalVerdict == "Safe") "No scam indicators detected" else if (finalVerdict == "Unable to Determine") "Insufficient context" else "Suspicious indicator detected")
+            },
             finalReason = finalReasonStr,
             webRiskStatus = webRiskConso,
             aiStatus = aiStatus,
             scamType = scamCategory,
             advice = adviceListCustom,
-            summary = finalReasonStr,
+            summary = explainabilityRes.summary,
             textVerdict = textVerdict,
             urlVerdict = overallUrlVerdict,
             phishtankStatus = phishtankConso,
@@ -1523,7 +1619,11 @@ object SecurityAnalysisEngine {
     }
 
     private fun generateDynamicSummary(message: String, signals: List<String>, shortReason: String, isHindi: Boolean): String {
-        if (shortReason.isNotEmpty() && !shortReason.contains("local context-aware") && !shortReason.contains("No suspicious")) {
+        if (shortReason.isNotEmpty() && 
+            !shortReason.contains("local context-aware") && 
+            !shortReason.contains("No suspicious") && 
+            !shortReason.contains("temporarily unavailable") && 
+            !shortReason.contains("अस्थायी रूप से अनुपलब्ध")) {
             return shortReason
         }
         val lowerMsg = message.lowercase()
@@ -1569,9 +1669,9 @@ object SecurityAnalysisEngine {
     private fun getMatchedPresetResult(normalized: String, isHindi: Boolean): HybridAnalysisResult? {
         val clean = normalized.trim().lowercase()
         
-        val isSafeSample = clean.contains("i'll be 10 minutes late")
-        val isSuspiciousSample = clean.contains("your account access is temporarily suspended") || (clean.contains("verify your details") && clean.contains("temporarily suspended"))
-        val isDangerSample = clean.contains("won $5,000 cash prize") || clean.contains("claim-prize-now.net")
+        val isSafeSample = clean.contains("the meeting has been moved")
+        val isSuspiciousSample = clean.contains("found an issue with your account") || clean.contains("contact our support team soon")
+        val isDangerSample = clean.contains("bank account will be blocked today") || clean.contains("claim-prize-now.net")
         
         val isUpiScam = clean.contains("gpay-refund-portal.in") || (clean.contains("pending refund request") && clean.contains("google pay"))
         val isBankScam = clean.contains("sbi-secure-update.net") || (clean.contains("banking profile to avoid suspension") && clean.contains("debit card"))

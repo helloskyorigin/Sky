@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -42,7 +43,8 @@ object NotificationHelper {
 
     fun showDailyChallengeNotification(context: Context) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "com.skyorigin.threatshieldai.ACTION_NAVIGATE_DAILY_CHALLENGE"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("navigate_to", "daily_challenge")
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -50,16 +52,21 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val logoRes = R.drawable.threatshield_official_logo
+        val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "🛡️ Today's Scam Challenge"
         val body = "A new scam challenge is ready.\nCan you spot today's scam?"
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_shield_notif)
-            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
+            .setSmallIcon(R.drawable.ic_shield_notification_small)
+            .apply {
+                if (largeIcon != null) setLargeIcon(largeIcon)
+            }
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
@@ -74,7 +81,8 @@ object NotificationHelper {
 
     fun showDailySafetyTipNotification(context: Context) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "com.skyorigin.threatshieldai.ACTION_NAVIGATE_DAILY_TIP"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("navigate_to", "daily_tip")
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -82,16 +90,21 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val logoRes = R.drawable.threatshield_official_logo
+        val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "Daily Safety Tip Ready"
         val body = "Learn one new cybersecurity habit in less than a minute."
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_shield_notif)
-            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
+            .setSmallIcon(R.drawable.ic_shield_notification_small)
+            .apply {
+                if (largeIcon != null) setLargeIcon(largeIcon)
+            }
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
@@ -106,7 +119,8 @@ object NotificationHelper {
 
     fun showQuickChallengeNotification(context: Context) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "com.skyorigin.threatshieldai.ACTION_NAVIGATE_QUICK_QUIZ"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("navigate_to", "quick_quiz")
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -114,16 +128,21 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val logoRes = R.drawable.threatshield_official_logo
+        val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "Today's Quick Challenge is Ready"
         val body = "Complete today's cybersecurity challenge and continue your learning streak."
 
         val builder = NotificationCompat.Builder(context, DAILY_CHALLENGE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_shield_notif)
-            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
+            .setSmallIcon(R.drawable.ic_shield_notification_small)
+            .apply {
+                if (largeIcon != null) setLargeIcon(largeIcon)
+            }
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
@@ -138,27 +157,39 @@ object NotificationHelper {
 
     fun showScanCompleteNotification(context: Context, analysis: MessageAnalysis) {
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "com.skyorigin.threatshieldai.ACTION_NAVIGATE_RESULT_${analysis.timestamp}"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("navigate_to", "result")
             putExtra("timestamp", analysis.timestamp)
         }
+        val requestCode = ((analysis.timestamp % 100000).toInt() + 3000)
         val pendingIntent = PendingIntent.getActivity(
-            context, analysis.timestamp.toInt(), intent,
+            context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val logoRes = R.drawable.threatshield_official_logo
+        val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
+        val verdictInfo = VerdictMapper.getVerdictForScore(analysis.score)
+        val title = "Analysis Completed"
+        val body = "Verdict: ${verdictInfo.titleEn} (Score: ${analysis.score}%)\nTap to view full details."
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_shield_notif)
-            .setLargeIcon(BitmapHelper.getBitmapFromVectorDrawable(context, R.drawable.ic_official_logo))
-            .setContentTitle("Analysis Completed")
-            .setContentText("Status: ${analysis.status} (Score: ${analysis.score}%)")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSmallIcon(R.drawable.ic_shield_notification_small)
+            .apply {
+                if (largeIcon != null) setLargeIcon(largeIcon)
+            }
+            .setContentTitle(title)
+            .setContentText("Verdict: ${verdictInfo.titleEn} (Score: ${analysis.score}%)")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
             try {
-                notify(1002, builder.build())
+                notify((analysis.timestamp % 10000).toInt() + 2000, builder.build())
             } catch (e: SecurityException) {
                 // Ignore missing notification permission in tests or pre-OREO
             }

@@ -59,25 +59,16 @@ fun AnalysisResultScreen(
     val warningOrange = Color(0xFFF59E0B)
     val safeGreen = Color(0xFF22C55E)
 
-    val verdict = analysis.getTextVerdict()
-    val isDanger = verdict.equals("Danger", ignoreCase = true)
-    val isWarning = verdict.equals("Warning", ignoreCase = true)
-    val isSuspicious = verdict.equals("Suspicious", ignoreCase = true)
-    val isUnableToDetermine = verdict.equals("Unable to Determine", ignoreCase = true)
+    val verdictInfo = VerdictMapper.getVerdictForScore(analysis.score)
+    val riskColor = verdictInfo.color
+    val riskTitle = verdictInfo.getTitle(isHindi)
 
-    val riskColor = when {
-        isDanger -> dangerRed
-        isWarning || isSuspicious -> warningOrange
-        isUnableToDetermine -> Color(0xFF94A3B8)
-        else -> safeGreen
-    }
-
-    val riskTitle = when {
-        isDanger -> "HIGH RISK"
-        isWarning || isSuspicious -> "SUSPICIOUS"
-        isUnableToDetermine -> "UNABLE TO DETERMINE"
-        else -> "SAFE"
-    }
+    val isDanger = analysis.score >= 70
+    val isSuspicious = analysis.score in 40..69
+    val isLowRisk = analysis.score in 20..39
+    val isSafe = analysis.score < 20
+    val isWarning = isSuspicious
+    val isUnableToDetermine = false
 
     // Animation States
     var animateIn by remember { mutableStateOf(false) }
@@ -297,7 +288,7 @@ fun AnalysisResultScreen(
                                 modifier = Modifier.size(18.dp)
                             ) {
                                 Icon(
-                                    imageVector = if (isDanger) Icons.Rounded.PriorityHigh else if (isWarning || isSuspicious) Icons.Rounded.Warning else if (isUnableToDetermine) Icons.Rounded.HelpOutline else Icons.Rounded.Check,
+                                    imageVector = verdictInfo.icon,
                                     contentDescription = null,
                                     tint = Color.White,
                                     modifier = Modifier.padding(2.dp)
@@ -315,12 +306,7 @@ fun AnalysisResultScreen(
                         
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        val verdictSentence = when {
-                            isDanger -> if (isHindi) "उच्च जोखिम वाले घोटाले के संकेत मिले।" else "High-risk scam indicators detected."
-                            isWarning || isSuspicious -> if (isHindi) "संदिग्ध गतिविधि के संकेत मिले।" else "Suspicious activity indicators detected."
-                            isUnableToDetermine -> if (isHindi) "विश्लेषण के लिए पर्याप्त डेटा नहीं है।" else "Insufficient data to confidently classify."
-                            else -> if (isHindi) "सुरक्षित संदेश पैटर्न पाया गया।" else "Safe message pattern detected."
-                        }
+                        val verdictSentence = verdictInfo.getSubtitle(isHindi)
                         
                         Text(
                             text = verdictSentence,
@@ -332,7 +318,7 @@ fun AnalysisResultScreen(
                         
                         Spacer(modifier = Modifier.height(6.dp))
                         
-                        val displayConfidence = if (analysis.confidence > 0) analysis.confidence else if (analysis.score > 0) analysis.score else 94
+                        val displayConfidence = if (analysis.confidence > 0) analysis.confidence else 50
 
                         // Pills Row
                         Row(
@@ -379,7 +365,7 @@ fun AnalysisResultScreen(
                             val confidenceSupport = if (displayConfidence >= 75) {
                                 "इस result पर AI की confidence अच्छी है।"
                             } else {
-                                "यह analysis काफी भरोसेमंद लग रहा है।"
+                                "सीमित साक्ष्यों के कारण AI confidence सीमित है।"
                             }
                             Text(
                                 text = confidenceSupport,
@@ -439,10 +425,11 @@ fun AnalysisResultScreen(
                 }
             }
 
-            // 3. LINK SECURITY CARD (Compact horizontal reputation block)
+            // 3. LINK SECURITY CARD (Google Web Risk Only)
             val parsedUrls = analysis.urlStatuses
                 .filter { !it.startsWith("METADATA:") }
                 .mapNotNull { parseUrlStatus(it, isHindi) }
+                .distinctBy { UrlDetectionEngine.normalizeUrl(it.originalUrl) }
                 .sortedBy { 
                     when (it.riskLevel.uppercase()) {
                         "MALICIOUS", "DANGER" -> 0
@@ -451,281 +438,148 @@ fun AnalysisResultScreen(
                     }
                 }
 
-            if (parsedUrls.isNotEmpty()) {
-                var isLinkDetailsExpanded by remember { mutableStateOf(false) }
-                val highestRiskUrl = parsedUrls.first()
-                
+            if (false && parsedUrls.isNotEmpty()) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = cardBg),
                     border = BorderStroke(1.dp, cardBorder),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isLinkDetailsExpanded = !isLinkDetailsExpanded }
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                        // Header row
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Link,
-                                    contentDescription = "Link Security",
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Link Security",
-                                    color = textPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                            
-                            val badgeColor = when (highestRiskUrl.riskLevel.uppercase()) {
-                                "MALICIOUS", "DANGER" -> dangerRed
-                                "NO_KNOWN_THREAT", "SAFE" -> safeGreen
-                                else -> warningOrange
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Detected URL box
-                        val isHighestDangerous = highestRiskUrl.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER")
-                        val isHighestSafe = highestRiskUrl.riskLevel.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE")
-                        
-                        Surface(
-                            color = if (isHighestDangerous) dangerRed.copy(alpha = 0.08f) 
-                                    else if (isHighestSafe) cardBorder.copy(alpha = 0.2f)
-                                    else warningOrange.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = if (isHighestDangerous) BorderStroke(1.dp, dangerRed.copy(alpha = 0.3f))
-                                     else if (isHighestSafe) null
-                                     else BorderStroke(1.dp, warningOrange.copy(alpha = 0.2f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    handleUrlClick(highestRiskUrl.originalUrl, highestRiskUrl.riskLevel)
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                val displayUrl = try {
-                                    val uri = java.net.URI(highestRiskUrl.originalUrl)
-                                    val host = uri.host ?: highestRiskUrl.originalUrl
-                                    val path = uri.path ?: ""
-                                    if (path.length > 15) {
-                                        host + path.take(12) + "..."
-                                    } else {
-                                        host + path
-                                    }
-                                } catch (e: Exception) {
-                                    highestRiskUrl.originalUrl
-                                }
-                                
-                                Text(
-                                    text = displayUrl,
-                                    fontSize = 12.sp,
-                                    color = if (isHighestDangerous) dangerRed else textPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = if (isHighestDangerous) Icons.Rounded.Block else Icons.Rounded.OpenInNew,
-                                    contentDescription = if (isHighestDangerous) "Dangerous Link Blocked" else "Open Link",
-                                    tint = if (isHighestDangerous) dangerRed else textSecondary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Overall status banner
-                        val isHighestFailed = highestRiskUrl.webRiskStatus == "FAILED" || highestRiskUrl.webRiskStatus == "TIMEOUT"
-                        
-                        val overallLabel = when {
-                            highestRiskUrl.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") -> "KNOWN THREAT"
-                            highestRiskUrl.riskLevel.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> "NO KNOWN THREAT"
-                            isHighestFailed -> "UNABLE TO VERIFY"
-                            else -> "UNVERIFIED"
-                        }
-                        
-                        val overallColor = when {
-                            highestRiskUrl.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") -> dangerRed
-                            highestRiskUrl.riskLevel.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> safeGreen
-                            else -> warningOrange
-                        }
-                        
-                        val overallSubtitle = when {
-                            highestRiskUrl.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") -> if (isHindi) "यह Link खतरनाक है" else "This link is dangerous."
-                            highestRiskUrl.riskLevel.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> if (isHindi) "कोई ज्ञात खतरा नहीं पाया गया" else "No known threat confirmed by reputation sources."
-                            isHighestFailed -> if (isHindi) "API विफलता के कारण स्थिति अज्ञात है" else "Unable to verify link safety status due to API failure."
-                            else -> if (isHindi) "स्थिति अज्ञात है - सावधानी बरतें" else "Unverified or unknown link safety status."
-                        }
-
-                        Surface(
-                            color = overallColor.copy(alpha = 0.06f),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = when(highestRiskUrl.riskLevel.uppercase()) {
-                                        "MALICIOUS", "DANGER" -> Icons.Rounded.GppBad
-                                        "NO_KNOWN_THREAT", "SAFE" -> Icons.Rounded.GppGood
-                                        else -> Icons.Rounded.GppMaybe
-                                    },
-                                    contentDescription = null,
-                                    tint = overallColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = overallLabel,
-                                        color = overallColor,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                    Text(
-                                        text = overallSubtitle,
-                                        color = textPrimary.copy(alpha = 0.8f),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        lineHeight = 12.sp
-                                    )
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Rounded.Link,
+                                contentDescription = "Link Security",
+                                tint = primaryBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Link Security",
+                                color = textPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Provider Horizontal Row (3 Symmetrical horizontal cells)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            ProviderCell("Threat Database", highestRiskUrl.webRiskVerdict, highestRiskUrl.webRiskStatus, isHindi, Modifier.weight(1f))
-                            ProviderCell("Phishing Check", highestRiskUrl.phishtankVerdict, highestRiskUrl.phishtankStatus, isHindi, Modifier.weight(1f))
-                            ProviderCell("Malware Check", highestRiskUrl.urlhausVerdict, highestRiskUrl.urlhausStatus, isHindi, Modifier.weight(1f))
-                        }
-                        
-                        // Expandable Detail for Multiple URLs
-                        if (parsedUrls.size > 1) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (isLinkDetailsExpanded) {
-                                        if (isHindi) "कम जानकारी देखें" else "Show Less"
-                                    } else {
-                                        if (isHindi) "अन्य सभी Links देखें (${parsedUrls.size})" else "Show All Links (${parsedUrls.size})"
-                                    },
-                                    color = primaryBlue,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+
+                        parsedUrls.forEachIndexed { index, urlStatus ->
+                            if (index > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = cardBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            android.util.Log.d("WebRiskTrace", "11. webRiskStatus received by AnalysisResultScreen: ${urlStatus.webRiskStatus}")
+                            val isFailed = urlStatus.webRiskStatus != "OK"
+                            val reason = if (isFailed) "webRiskStatus is not OK ('${urlStatus.webRiskStatus}'), selecting CHECK UNAVAILABLE" else "webRiskStatus is OK, proceeding to threat/safe check"
+                            android.util.Log.d("WebRiskTrace", "12. UI evaluation: isFailed=$isFailed (webRiskStatus='${urlStatus.webRiskStatus}' != 'OK'), reason=$reason")
+                            val isThreat = !isFailed && urlStatus.webRiskVerdict.uppercase() in listOf("MALICIOUS", "DANGER")
+
+                            val resultState = when {
+                                isFailed -> WebRiskUiResult(
+                                    label = if (isHindi) "जाँच अनुपलब्ध" else "CHECK UNAVAILABLE",
+                                    subtitle = if (isHindi) "Google Web Risk जांच इस URL के लिए उपलब्ध नहीं है।" else "Google Web Risk check unavailable for this URL.",
+                                    color = warningOrange,
+                                    icon = Icons.Rounded.GppMaybe
                                 )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Icon(
-                                    imageVector = if (isLinkDetailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    contentDescription = null,
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(14.dp)
+                                isThreat -> WebRiskUiResult(
+                                    label = if (isHindi) "खतरा मिला" else "THREAT FOUND",
+                                    subtitle = urlStatus.threatType?.takeIf { it.isNotEmpty() } ?: (if (isHindi) "Google Web Risk द्वारा खतरा पाया गया" else "Threat detected by Google Web Risk"),
+                                    color = dangerRed,
+                                    icon = Icons.Rounded.GppBad
+                                )
+                                else -> WebRiskUiResult(
+                                    label = if (isHindi) "कोई ज्ञात खतरा नहीं" else "NO KNOWN THREAT FOUND",
+                                    subtitle = if (isHindi) "Google Web Risk को इस URL पर कोई ज्ञात खतरा नहीं मिला।" else "Google Web Risk found no known threat for this URL.",
+                                    color = safeGreen,
+                                    icon = Icons.Rounded.GppGood
                                 )
                             }
-                            
-                            if (isLinkDetailsExpanded) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                HorizontalDivider(color = cardBorder.copy(alpha = 0.5f), thickness = 1.dp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                
-                                parsedUrls.drop(1).forEachIndexed { index, urlStatus ->
-                                    val otherOverallColor = when (urlStatus.riskLevel.uppercase()) {
-                                        "MALICIOUS", "DANGER" -> dangerRed
-                                        "NO_KNOWN_THREAT", "SAFE" -> safeGreen
-                                        else -> warningOrange
+
+                            Surface(
+                                color = resultState.color.copy(alpha = 0.06f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, resultState.color.copy(alpha = 0.2f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        handleUrlClick(urlStatus.originalUrl, urlStatus.riskLevel)
                                     }
-                                    val isOtherDangerous = urlStatus.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER")
-                                    val isOtherSafe = urlStatus.riskLevel.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE")
-                                    
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                if (isOtherDangerous) dangerRed.copy(alpha = 0.05f)
-                                                else if (isOtherSafe) Color.Transparent
-                                                else warningOrange.copy(alpha = 0.03f)
-                                            )
-                                            .border(
-                                                width = 1.dp,
-                                                color = if (isOtherDangerous) dangerRed.copy(alpha = 0.2f) else Color.Transparent,
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                            .clickable {
-                                                handleUrlClick(urlStatus.originalUrl, urlStatus.riskLevel)
-                                            }
-                                            .padding(8.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = urlStatus.originalUrl,
-                                                fontSize = 11.sp,
-                                                color = if (isOtherDangerous) dangerRed else textPrimary,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Surface(
-                                                color = otherOverallColor.copy(alpha = 0.1f),
-                                                shape = RoundedCornerShape(4.dp)
-                                            ) {
-                                                Text(
-                                                    text = urlStatus.riskLevel.uppercase(),
-                                                    color = otherOverallColor,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
+                                        val displayUrl = try {
+                                            val uri = java.net.URI(urlStatus.originalUrl)
+                                            val host = uri.host ?: urlStatus.originalUrl
+                                            val path = uri.path ?: ""
+                                            if (path.length > 20) {
+                                                host + path.take(15) + "..."
+                                            } else {
+                                                host + path
                                             }
+                                        } catch (e: Exception) {
+                                            urlStatus.originalUrl
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            ProviderCell("Threat Database", urlStatus.webRiskVerdict, urlStatus.webRiskStatus, isHindi, Modifier.weight(1f))
-                                            ProviderCell("Phishing Check", urlStatus.phishtankVerdict, urlStatus.phishtankStatus, isHindi, Modifier.weight(1f))
-                                            ProviderCell("Malware Check", urlStatus.urlhausVerdict, urlStatus.urlhausStatus, isHindi, Modifier.weight(1f))
-                                        }
+
+                                        Text(
+                                            text = displayUrl,
+                                            fontSize = 12.sp,
+                                            color = textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Rounded.OpenInNew,
+                                            contentDescription = "Open Link",
+                                            tint = textSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                     }
-                                    if (index < parsedUrls.size - 2) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        HorizontalDivider(color = cardBorder.copy(alpha = 0.3f), thickness = 0.5.dp)
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    HorizontalDivider(color = resultState.color.copy(alpha = 0.15f), thickness = 0.5.dp)
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = resultState.icon,
+                                            contentDescription = null,
+                                            tint = resultState.color,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = resultState.label,
+                                                color = resultState.color,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                            Text(
+                                                text = resultState.subtitle,
+                                                color = textPrimary.copy(alpha = 0.8f),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                lineHeight = 12.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -778,7 +632,18 @@ fun AnalysisResultScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    val finalReasons = when {
+                    val finalReasons = if (analysis.reasons.isNotEmpty()) {
+                        analysis.reasons.take(5).map { item ->
+                            val cleanItem = item.removePrefix("✕ ").removePrefix("✓ ").removePrefix("• ").trim()
+                            val prefix = when {
+                                isDanger -> "✕ "
+                                isWarning || isSuspicious -> "• "
+                                isUnableToDetermine -> "• "
+                                else -> "✓ "
+                            }
+                            "$prefix$cleanItem"
+                        }
+                    } else when {
                         isDanger -> {
                             val r1 = if (analysis.links.isNotEmpty()) {
                                 val hasMalicious = parsedUrls.any { it.riskLevel.uppercase() in listOf("MALICIOUS", "DANGER") }
@@ -1228,36 +1093,40 @@ fun ProviderCell(name: String, verdict: String, status: String, isHindi: Boolean
         }
     }
 
+    val isMissingKey = status.uppercase() in listOf("MISSING_KEY", "NOT_CONFIGURED", "UNAUTHORIZED")
+
+    val isFailed = status.uppercase() in listOf("FAILED", "TIMEOUT", "SCAN_FAILED", "ERROR", "UNAVAILABLE", "NETWORK_ERROR", "API_ERROR", "RATE_LIMIT") ||
+                   verdict.uppercase() in listOf("FAILED", "TIMEOUT", "SCAN_FAILED", "ERROR", "UNAVAILABLE")
+
+    val isSkipped = status.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") ||
+                    verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY")
+
+    val isMalicious = verdict.uppercase() in listOf("MALICIOUS", "DANGER", "PHISHING", "MALWARE")
+
     val displayLabel = when {
-        status.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") ||
-        verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") -> {
+        isSkipped -> {
             if (isHindi) "छोड़ा गया (गोपनीयता)" else "Skipped (Privacy)"
         }
-        
-        status.uppercase() == "FAILED" || status.uppercase() == "TIMEOUT" || status.uppercase() == "SCAN_FAILED" -> {
-            if (isHindi) "अपुष्ट" else "Unverified"
+        isMissingKey -> {
+            if (isHindi) "की कॉन्फ़िगर नहीं" else "Key Not Configured"
         }
-        
-        verdict.uppercase() in listOf("MALICIOUS", "DANGER") -> {
+        isFailed -> {
+            if (isHindi) "डेटाबेस उपलब्ध नहीं है" else "Database Unavailable"
+        }
+        isMalicious -> {
             if (isHindi) "खतरा" else "Threat"
         }
-        
-        verdict.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> {
-            if (isHindi) "सुरक्षित" else "Clear"
-        }
-        
         else -> {
-            if (isHindi) "अपुष्ट" else "Unverified"
+            if (isHindi) "कोई ज्ञात खतरा नहीं पाया गया" else "No Known Threat Found"
         }
     }
     
     val displayColor = when {
-        status.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") ||
-        verdict.uppercase() in listOf("SCAN_SKIPPED_PRIVACY", "BEHAVIORAL_SCAN_SKIPPED_PRIVACY") -> Color(0xFF3B82F6)
-        
-        verdict.uppercase() in listOf("MALICIOUS", "DANGER") -> Color(0xFFEF4444)
-        verdict.uppercase() in listOf("NO_KNOWN_THREAT", "SAFE") -> Color(0xFF22C55E)
-        else -> Color(0xFFF59E0B)
+        isSkipped -> Color(0xFF3B82F6)
+        isMissingKey -> Color(0xFF64748B)
+        isFailed -> Color(0xFFF59E0B)
+        isMalicious -> Color(0xFFEF4444)
+        else -> Color(0xFF22C55E)
     }
     
     val cellBg = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC)
@@ -1385,3 +1254,11 @@ fun sanitizeText(text: String): String {
                .replace("(?i)groq".toRegex(), "AI Engine")
                .replace("(?i)llama".toRegex(), "AI Model")
 }
+
+data class WebRiskUiResult(
+    val label: String,
+    val subtitle: String,
+    val color: Color,
+    val icon: ImageVector
+)
+

@@ -18,19 +18,21 @@ android {
     applicationId = "com.skyorigin.threatshieldai"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 3
+    versionName = "1.0.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "URLSCAN_API_KEY", "\"\"")
+    manifestPlaceholders["adMobAppId"] = "ca-app-pub-3940256099942544~3347511713"
   }
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/threatshield-upload-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      storePassword = System.getenv("STORE_PASSWORD") ?: ""
+      keyAlias = System.getenv("KEY_ALIAS") ?: "threatshield-upload"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: ""
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -43,11 +45,20 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+      manifestPlaceholders["adMobAppId"] = "ca-app-pub-9554102514624306~1748117938"
+      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"ca-app-pub-9554102514624306/8741615708\"")
+      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"ca-app-pub-9554102514624306/6963564405\"")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
+      manifestPlaceholders["adMobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
+      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"ca-app-pub-3940256099942544/5224354917\"")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -102,7 +113,7 @@ dependencies {
   // implementation(libs.firebase.firestore)
 
   // Firebase Auth with Google Sign-In
-  implementation(libs.firebase.appcheck.recaptcha)
+  // implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.androidx.core.splashscreen)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.datastore.preferences)
@@ -113,6 +124,7 @@ dependencies {
   implementation(libs.play.review)
   implementation(libs.play.review.ktx)
   implementation(libs.play.services.ads)
+  implementation(libs.user.messaging.platform)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

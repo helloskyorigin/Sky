@@ -143,7 +143,7 @@ fun ScamAcademyScreen(
             }
 
             // Categories List
-            ScamAcademyData.categories.forEach { category ->
+            ScamAcademyData.categories.forEachIndexed { index, category ->
                 val title = if (isHindi) category.titleHi else category.titleEn
                 val desc = if (isHindi) category.shortDescHi else category.shortDescEn
                 val icon = getIconForCategory(category.iconName)
@@ -156,6 +156,10 @@ fun ScamAcademyScreen(
                     iconColor = iconColor,
                     onClick = { onNavigateToCategory(category.id) }
                 )
+                
+                if (index == 2) {
+                    BannerAdComposable()
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
