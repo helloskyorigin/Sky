@@ -1,4 +1,5 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
@@ -8,6 +9,28 @@ plugins {
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
   alias(libs.plugins.firebase.crashlytics)
+}
+
+fun getSecret(key: String, defaultValue: String): String {
+  val envFile = file("${rootDir}/.env")
+  val envExampleFile = file("${rootDir}/.env.example")
+  val properties = Properties()
+  if (envFile.exists()) {
+    val stream = envFile.inputStream()
+    try {
+      properties.load(stream)
+    } finally {
+      stream.close()
+    }
+  } else if (envExampleFile.exists()) {
+    val stream = envExampleFile.inputStream()
+    try {
+      properties.load(stream)
+    } finally {
+      stream.close()
+    }
+  }
+  return properties.getProperty(key)?.replace("\"", "") ?: defaultValue
 }
 
 android {
@@ -49,9 +72,9 @@ android {
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
-      manifestPlaceholders["adMobAppId"] = "ca-app-pub-9554102514624306~1748117938"
-      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"ca-app-pub-9554102514624306/8741615708\"")
-      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"ca-app-pub-9554102514624306/6963564405\"")
+      manifestPlaceholders["adMobAppId"] = getSecret("RELEASE_ADMOB_APP_ID", "ca-app-pub-9554102514624306~1748117938")
+      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"${getSecret("RELEASE_BANNER_AD_UNIT_ID", "ca-app-pub-9554102514624306/8741615708")}\"")
+      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"${getSecret("RELEASE_REWARDED_AD_UNIT_ID", "ca-app-pub-9554102514624306/6963564405")}\"")
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")
