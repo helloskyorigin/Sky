@@ -87,9 +87,9 @@ android {
 
   buildTypes {
     release {
-      isCrunchPngs = false
-      isMinifyEnabled = false
-      isShrinkResources = false
+      isCrunchPngs = true
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
       
@@ -115,6 +115,15 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+  packaging {
+    resources {
+      excludes += "**/LICENSE.txt"
+      excludes += "**/LICENSE"
+      excludes += "**/NOTICE"
+      excludes += "**/*.proto"
+      excludes += "META-INF/*.kotlin_module"
+    }
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
@@ -155,11 +164,11 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
+  // implementation(libs.converter.moshi)
+  // implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
-
+ 
   // Firebase Auth with Google Sign-In
   // implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.androidx.core.splashscreen)
@@ -175,11 +184,11 @@ dependencies {
   implementation(libs.user.messaging.platform)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
+  // implementation(libs.logging.interceptor)
+  // implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
+  // implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -197,5 +206,5 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
+  // "ksp"(libs.moshi.kotlin.codegen)
 }

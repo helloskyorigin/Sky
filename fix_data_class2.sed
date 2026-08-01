@@ -1,1 +1,0 @@
-s/data class MessageAnalysis(/data class MessageAnalysis(\n    val summary: String = "",\n    val reasons: List<String> = emptyList(),\n    val links: List<String> = emptyList(),\n    val explain15: String = "",\n/g

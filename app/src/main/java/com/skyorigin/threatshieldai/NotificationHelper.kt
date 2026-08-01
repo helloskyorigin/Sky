@@ -53,7 +53,7 @@ object NotificationHelper {
         )
 
         val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val logoRes = R.drawable.threatshield_official_logo
+        val logoRes = R.drawable.dark
         val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "🛡️ Today's Scam Challenge"
         val body = "A new scam challenge is ready.\nCan you spot today's scam?"
@@ -91,7 +91,7 @@ object NotificationHelper {
         )
 
         val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val logoRes = R.drawable.threatshield_official_logo
+        val logoRes = R.drawable.dark
         val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "Daily Safety Tip Ready"
         val body = "Learn one new cybersecurity habit in less than a minute."
@@ -129,7 +129,7 @@ object NotificationHelper {
         )
 
         val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val logoRes = R.drawable.threatshield_official_logo
+        val logoRes = R.drawable.dark
         val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val title = "Today's Quick Challenge is Ready"
         val body = "Complete today's cybersecurity challenge and continue your learning streak."
@@ -169,7 +169,7 @@ object NotificationHelper {
         )
 
         val isDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val logoRes = R.drawable.threatshield_official_logo
+        val logoRes = R.drawable.dark
         val largeIcon = BitmapFactory.decodeResource(context.resources, logoRes)
         val verdictInfo = VerdictMapper.getVerdictForScore(analysis.score)
         val title = "Analysis Completed"

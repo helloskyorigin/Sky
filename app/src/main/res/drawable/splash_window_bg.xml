@@ -4,8 +4,8 @@
         <color android:color="#000000" />
     </item>
     <item
-        android:width="180dp"
-        android:height="180dp"
+        android:width="396dp"
+        android:height="396dp"
         android:gravity="center"
-        android:drawable="@drawable/threatshield_official_logo" />
+        android:drawable="@drawable/dark" />
 </layer-list>

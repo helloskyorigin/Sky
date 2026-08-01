@@ -168,7 +168,7 @@ fun OfficialBrandLogo(
     contentScale: ContentScale = ContentScale.Fit,
     noBackground: Boolean = false
 ) {
-    val logoRes = com.skyorigin.threatshieldai.R.drawable.threatshield_official_logo
+    val logoRes = com.skyorigin.threatshieldai.R.drawable.dark
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center

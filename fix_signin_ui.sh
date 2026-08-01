@@ -1,1 +1,0 @@
-sed -i 's/onClick = { if (isConsentChecked) isSheetVisible = true },/onClick = { if (isConsentChecked) { isSigningIn = true; viewModel.signInWithGoogle { email, displayName -> isSigningIn = false; onSignInSuccess(email, displayName) } } },/' app/src/main/java/com/skyorigin/threatshieldai/GoogleSignInScreen.kt

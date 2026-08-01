@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# OkHttp platform optional dependencies
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.bouncycastle.provider.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+
