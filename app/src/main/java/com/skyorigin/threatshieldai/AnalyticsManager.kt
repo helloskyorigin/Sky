@@ -8,8 +8,13 @@ import java.util.Locale
 
 class AnalyticsManager private constructor(private val context: Context) {
 
-    private val firebaseAnalytics: FirebaseAnalytics by lazy {
-        FirebaseAnalytics.getInstance(context)
+    private val firebaseAnalytics: FirebaseAnalytics? by lazy {
+        try {
+            FirebaseAnalytics.getInstance(context)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to initialize FirebaseAnalytics", e)
+            null
+        }
     }
 
     companion object {
@@ -61,9 +66,9 @@ class AnalyticsManager private constructor(private val context: Context) {
             if (!finalParams.containsKey("device_language")) {
                 finalParams.putString("device_language", getDeviceLanguage())
             }
-            firebaseAnalytics.logEvent(eventName, finalParams)
+            firebaseAnalytics?.logEvent(eventName, finalParams)
             Log.d(TAG, "Logged event: $eventName, params: $finalParams")
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Error logging event: $eventName", e)
         }
     }

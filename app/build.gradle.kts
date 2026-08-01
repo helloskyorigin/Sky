@@ -12,6 +12,10 @@ plugins {
 }
 
 fun getSecret(key: String, defaultValue: String): String {
+  val envValue = System.getenv(key)
+  if (!envValue.isNullOrEmpty()) {
+    return envValue.replace("\"", "").trim()
+  }
   val envFile = file("${rootDir}/.env")
   val envExampleFile = file("${rootDir}/.env.example")
   val properties = Properties()
@@ -30,7 +34,15 @@ fun getSecret(key: String, defaultValue: String): String {
       stream.close()
     }
   }
-  return properties.getProperty(key)?.replace("\"", "") ?: defaultValue
+  return properties.getProperty(key)?.replace("\"", "")?.trim() ?: defaultValue
+}
+
+fun getAdMobSecret(primaryKey: String, secondaryKey: String, defaultValue: String): String {
+  val v1 = getSecret(primaryKey, "")
+  if (v1.isNotEmpty()) return v1
+  val v2 = getSecret(secondaryKey, "")
+  if (v2.isNotEmpty()) return v2
+  return defaultValue
 }
 
 android {
@@ -52,10 +64,18 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/threatshield-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD") ?: ""
-      keyAlias = System.getenv("KEY_ALIAS") ?: "threatshield-upload"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      val kFile = file(keystorePath)
+      if (kFile.exists()) {
+        storeFile = kFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "threatshield-upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      } else {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -68,13 +88,18 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
+      isShrinkResources = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
-      manifestPlaceholders["adMobAppId"] = getSecret("RELEASE_ADMOB_APP_ID", "ca-app-pub-9554102514624306~1748117938")
-      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"${getSecret("RELEASE_BANNER_AD_UNIT_ID", "ca-app-pub-9554102514624306/8741615708")}\"")
-      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"${getSecret("RELEASE_REWARDED_AD_UNIT_ID", "ca-app-pub-9554102514624306/6963564405")}\"")
+      
+      val releaseAppId = getAdMobSecret("RELEASE_ADMOB_APP_ID", "ADMOB_APP_ID", "ca-app-pub-9554102514624306~1748117938")
+      val releaseBannerId = getAdMobSecret("RELEASE_BANNER_AD_UNIT_ID", "BANNER_AD_UNIT_ID", "ca-app-pub-9554102514624306/8741615708")
+      val releaseRewardedId = getAdMobSecret("RELEASE_REWARDED_AD_UNIT_ID", "REWARDED_AD_UNIT_ID", "ca-app-pub-9554102514624306/6963564405")
+
+      manifestPlaceholders["adMobAppId"] = releaseAppId
+      buildConfigField("String", "BANNER_AD_UNIT_ID", "\"${releaseBannerId}\"")
+      buildConfigField("String", "REWARDED_AD_UNIT_ID", "\"${releaseRewardedId}\"")
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")

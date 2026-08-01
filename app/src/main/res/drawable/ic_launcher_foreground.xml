@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:gravity="center"
-        android:drawable="@drawable/threatshield_official_dark_transparent_v1" />
+        android:drawable="@drawable/threatshield_official_logo"
+        android:gravity="center" />
 </layer-list>

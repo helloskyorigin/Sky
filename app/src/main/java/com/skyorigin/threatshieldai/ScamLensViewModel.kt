@@ -80,7 +80,11 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
         }
 
     private val _currentThemeMode = mutableStateOf(
-        ThemeMode.valueOf(prefs.getString("theme", ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
+        try {
+            ThemeMode.valueOf(prefs.getString("theme", ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
+        } catch (e: Throwable) {
+            ThemeMode.DARK
+        }
     )
     val currentThemeModeState: androidx.compose.runtime.State<ThemeMode> = _currentThemeMode
 
@@ -370,7 +374,11 @@ class ScamLensViewModel(application: Application) : AndroidViewModel(application
             }
             launch {
                 preferencesRepo.themeFlow.collect { themeStr ->
-                    _currentThemeMode.value = ThemeMode.valueOf(themeStr)
+                    _currentThemeMode.value = try {
+                        ThemeMode.valueOf(themeStr)
+                    } catch (e: Throwable) {
+                        ThemeMode.DARK
+                    }
                 }
             }
             launch {

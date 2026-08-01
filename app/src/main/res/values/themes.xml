@@ -4,7 +4,6 @@
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#000000</item>
         <item name="windowSplashScreenIconBackgroundColor">#000000</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/threatshield_official_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
         <item name="android:windowBackground">@drawable/splash_window_bg</item>
         <item name="android:statusBarColor">#000000</item>

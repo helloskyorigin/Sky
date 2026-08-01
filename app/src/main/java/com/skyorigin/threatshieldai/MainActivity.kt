@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -33,6 +34,10 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.google.android.gms.ads.MobileAds
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 
 fun Context.setAppLocale(language: String): Context {
     val locale = java.util.Locale(language)
@@ -43,17 +48,24 @@ fun Context.setAppLocale(language: String): Context {
 }
 
 class MainActivity : ComponentActivity() {
-    private var keepSplashOnScreen = true
-
     private lateinit var consentManager: ConsentManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("CRASH_LOGGER", "Uncaught exception in thread ${thread.name}", throwable)
+            try {
+                val prefs = getSharedPreferences("crash_reports", Context.MODE_PRIVATE)
+                prefs.edit().putString("last_crash", android.util.Log.getStackTraceString(throwable)).commit()
+            } catch (e: Throwable) {
+                // Ignore
+            }
+            System.exit(1)
+        }
 
-        lifecycleScope.launch {
-            delay(200)
-            keepSplashOnScreen = false
+        try {
+            installSplashScreen()
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "installSplashScreen failed", e)
         }
 
         super.onCreate(savedInstanceState)
@@ -86,28 +98,31 @@ class MainActivity : ComponentActivity() {
             NotificationHelper.createNotificationChannel(this)
             NotificationHelper.scheduleDailyChallengeNotification(this)
             AnalyticsManager.getInstance(this).logAppOpen()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             android.util.Log.e("MainActivity", "Error during initialization", e)
         }
 
+        val crashPrefs = getSharedPreferences("crash_reports", Context.MODE_PRIVATE)
+        crashPrefs.edit().remove("last_crash").apply()
+
         setContent {
             val sharedViewModel: ScamLensViewModel = viewModel()
-            val themeMode by sharedViewModel.currentThemeModeState
-            val currentLanguage by sharedViewModel.currentLanguageState
+                val themeMode by sharedViewModel.currentThemeModeState
+                val currentLanguage by sharedViewModel.currentLanguageState
 
-            val context = LocalContext.current
-            val localizedContext = context
+                val context = LocalContext.current
+                val localizedContext = context
 
-            val activityResultRegistryOwner = this@MainActivity
-            val onBackPressedDispatcherOwner = this@MainActivity
+                val activityResultRegistryOwner = this@MainActivity
+                val onBackPressedDispatcherOwner = this@MainActivity
 
-            CompositionLocalProvider(
-                LocalContext provides localizedContext,
-                androidx.activity.compose.LocalActivityResultRegistryOwner provides activityResultRegistryOwner,
-                androidx.activity.compose.LocalOnBackPressedDispatcherOwner provides onBackPressedDispatcherOwner
-            ) {
-                MyApplicationTheme(themeMode = themeMode) {
-                    val navController = rememberNavController()
+                CompositionLocalProvider(
+                    LocalContext provides localizedContext,
+                    androidx.activity.compose.LocalActivityResultRegistryOwner provides activityResultRegistryOwner,
+                    androidx.activity.compose.LocalOnBackPressedDispatcherOwner provides onBackPressedDispatcherOwner
+                ) {
+                    MyApplicationTheme(themeMode = themeMode) {
+                        val navController = rememberNavController()
 
                 var currentIntent by remember { mutableStateOf(intent) }
                 DisposableEffect(Unit) {
@@ -485,7 +500,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-            }
         }
     }
 

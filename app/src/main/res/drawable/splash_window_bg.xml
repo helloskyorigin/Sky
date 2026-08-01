@@ -6,9 +6,6 @@
     <item
         android:width="180dp"
         android:height="180dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@drawable/threatshield_official_logo"
-            android:gravity="center" />
-    </item>
+        android:gravity="center"
+        android:drawable="@drawable/threatshield_official_logo" />
 </layer-list>

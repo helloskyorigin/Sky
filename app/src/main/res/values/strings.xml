@@ -93,4 +93,13 @@
     <string name="onboarding_summary_theme">Theme</string>
     <string name="onboarding_summary_protection">Protection</string>
     <string name="onboarding_summary_enabled">Enabled</string>
+
+    <!-- Dummy Firebase resources to prevent crash on startup if google-services.json is missing -->
+    <string name="google_app_id" translatable="false">1:1234567890:android:abcdef123456</string>
+    <string name="gcm_defaultSenderId" translatable="false">1234567890</string>
+    <string name="default_web_client_id" translatable="false">1234567890-abcdef.apps.googleusercontent.com</string>
+    <string name="firebase_database_url" translatable="false">https://dummy.firebaseio.com</string>
+    <string name="google_api_key" translatable="false">AIzaSyDummyKey_1234567890abcdef</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyDummyKey_1234567890abcdef</string>
+    <string name="project_id" translatable="false">dummy-project-id</string>
 </resources>
