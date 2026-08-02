@@ -63,19 +63,10 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/threatshield-upload-key.jks"
-      val kFile = file(keystorePath)
-      if (kFile.exists()) {
-        storeFile = kFile
-        storePassword = System.getenv("STORE_PASSWORD") ?: ""
-        keyAlias = System.getenv("KEY_ALIAS") ?: "threatshield-upload"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-      } else {
-        storeFile = file("${rootDir}/debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
-      }
+      storeFile = file("${rootDir}/threatshield-upload-key.jks")
+      storePassword = "threatshield123"
+      keyAlias = "threatshield-upload"
+      keyPassword = "threatshield123"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
