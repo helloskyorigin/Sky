@@ -50,11 +50,11 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "unknown"
+    applicationId = "com.skyorigin.threatshieldai"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.0.3"
+    versionCode = 7
+    versionName = "1.0.6"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     buildConfigField("String", "URLSCAN_API_KEY", "\"\"")
@@ -63,10 +63,19 @@ android {
 
   signingConfigs {
     create("release") {
-      storeFile = file("${rootDir}/threatshield-upload-key.jks")
-      storePassword = "threatshield123"
-      keyAlias = "threatshield-upload"
-      keyPassword = "threatshield123"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/threatshield-upload-key.jks"
+      val kFile = file(keystorePath)
+      if (kFile.exists()) {
+        storeFile = kFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "threatshield-upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      } else {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
